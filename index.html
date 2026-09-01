@@ -246,6 +246,28 @@
   .admin-msg{margin-top:10px;font-size:13px;font-weight:700;}
   .admin-msg.err{color:var(--rojo-2);}
   .admin-msg.ok{color:var(--verde);}
+
+  .happycard-box{
+    margin-top:8px;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:700;
+    background:#fff8e0;color:#8a6d00;border:1.5px solid #ffe08a;
+  }
+  .happycard-box label{display:flex;align-items:center;gap:8px;font-weight:700;margin:0;cursor:pointer;}
+  .happycard-box input[type="checkbox"]{width:18px;height:18px;}
+
+  .confirm-screen{display:none;text-align:center;padding:40px 24px;}
+  .confirm-screen.show{display:block;}
+  .confirm-screen .big{font-size:52px;}
+  .confirm-screen h2{font-family:'Lilita One',sans-serif;color:var(--verde);font-size:26px;margin:10px 0;}
+  .confirm-screen p{color:var(--carbon);font-size:14px;line-height:1.5;}
+  .confirm-screen .folio{font-family:'Lilita One',sans-serif;color:var(--rojo);font-size:20px;}
+  .confirm-screen .wa-btn{
+    display:inline-block;margin-top:18px;background:#25D366;color:#fff;text-decoration:none;
+    padding:12px 20px;border-radius:8px;font-weight:800;font-size:14px;
+  }
+  .confirm-screen .new-order-btn{
+    display:block;margin:14px auto 0;background:none;border:none;color:var(--rojo-2);
+    font-weight:700;font-size:13px;text-decoration:underline;cursor:pointer;
+  }
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -276,6 +298,13 @@
       <label>Nombre</label>
       <input type="text" id="nombre" placeholder="¿A nombre de quién?">
     </div>
+
+    <div class="campo">
+      <label>📱 Tu WhatsApp (para tu HappyCard y para avisarte de tu pedido)</label>
+      <input type="tel" id="telefono" placeholder="Ej. 9611234567" maxlength="10">
+      <div id="happyCardInfo" class="happycard-box" style="display:none;"></div>
+    </div>
+
     <div class="campo">
       <label>¿Cómo lo quieres?</label>
       <div class="radios">
@@ -330,6 +359,18 @@
 <div class="zoom-overlay" id="zoomOverlay" onclick="cerrarZoom()">
   <button class="zoom-close" onclick="cerrarZoom()">✕</button>
   <img id="zoomImg" src="" alt="">
+</div>
+
+<div class="admin-overlay confirm-screen" id="confirmScreen">
+  <div class="admin-box">
+    <div class="big">✅</div>
+    <h2>¡Pedido recibido!</h2>
+    <p>Ya lo tenemos en cocina, en breve empezamos a prepararlo.</p>
+    <p>Folio: <span class="folio" id="confirmFolio"></span></p>
+    <p id="confirmHappyCard"></p>
+    <a href="#" target="_blank" class="wa-btn" id="confirmWaBtn">📲 Reenviar por WhatsApp</a>
+    <button class="new-order-btn" id="confirmNuevoBtn">Hacer otro pedido</button>
+  </div>
 </div>
 
 <div class="cart-bar">
@@ -418,7 +459,12 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const settingsRef = db.collection('settings').doc('config');
+const pedidosRef = db.collection('pedidos');
+const clientesRef = db.collection('clientes');
+const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
 let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'' };
+let happyCardSaldo = 0;
+let happyCardDescuentoAplicado = 0;
 
 const sauceOptions = ['BBQ','Búfalo','Mango habanero','Blue cheese','Tamarindo'];
 
@@ -725,6 +771,94 @@ function updateCartBar(){
 }
 updateCartBar();
 
+/* ===================== HappyCard (cashback) ===================== */
+function pintarHappyCardBox(){
+  const box = document.getElementById('happyCardInfo');
+  if(happyCardSaldo <= 0){
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = 'block';
+  box.innerHTML = `
+    🎉 Tienes <strong>$${happyCardSaldo}</strong> en tu HappyCard.
+    <label style="margin-top:6px;">
+      <input type="checkbox" id="usarHappyCard">
+      Usar como descuento en este pedido
+    </label>
+  `;
+  document.getElementById('usarHappyCard').addEventListener('change', (e)=>{
+    happyCardDescuentoAplicado = e.target.checked ? happyCardSaldo : 0;
+  });
+}
+
+let telefonoTimer = null;
+document.getElementById('telefono').addEventListener('input', (e)=>{
+  const tel = e.target.value.replace(/\D/g,'');
+  happyCardSaldo = 0;
+  happyCardDescuentoAplicado = 0;
+  document.getElementById('happyCardInfo').style.display = 'none';
+  clearTimeout(telefonoTimer);
+  if(tel.length !== 10) return;
+  telefonoTimer = setTimeout(()=>{
+    clientesRef.doc(tel).get().then(doc=>{
+      happyCardSaldo = doc.exists ? Math.floor(doc.data().saldo || 0) : 0;
+      pintarHappyCardBox();
+    }).catch(()=>{});
+  }, 500);
+});
+
+function buildOrderData(){
+  const itemsResumen = [];
+  let subtotal = 0;
+  for(const sec in menu){
+    menu[sec].forEach(item=>{
+      const s = state[item.id];
+      if(s.qty > 0){
+        if(hasVariants(item)){
+          s.units.forEach(u=>{
+            let variant = [];
+            if(item.typeChoice) variant.push(u.type);
+            if(item.proteinChoice) variant.push(u.protein);
+            if(item.sauceChoice) variant.push('salsa: '+u.sauce);
+            subtotal += item.price;
+            itemsResumen.push({ nombre: item.name + (variant.length?` (${variant.join(', ')})`:''), cantidad:1, precio:item.price });
+          });
+        } else {
+          const lineTotal = s.qty * item.price;
+          subtotal += lineTotal;
+          itemsResumen.push({ nombre:item.name, cantidad:s.qty, precio:lineTotal });
+        }
+      }
+    });
+  }
+
+  const entrega = document.querySelector('input[name="entrega"]:checked').value;
+  const nombre = document.getElementById('nombre').value.trim();
+  const telefono = document.getElementById('telefono').value.replace(/\D/g,'');
+  const referencia = document.getElementById('referencia').value.trim();
+  const notas = document.getElementById('notas').value.trim();
+  const pago = document.querySelector('input[name="pago"]:checked').value;
+
+  let envioFee = 0;
+  let ubicacion = null;
+  if(entrega === 'Envío a domicilio' && pin.lat !== null){
+    const dist = estimatedRouteKm(CENTER_LAT, CENTER_LNG, pin.lat, pin.lng);
+    envioFee = dist <= RADIUS_KM ? calcDeliveryFee(dist) : 0;
+    ubicacion = { lat: pin.lat, lng: pin.lng, distanciaKm: Number(dist.toFixed(2)) };
+  }
+
+  const descuento = Math.min(happyCardDescuentoAplicado, subtotal + envioFee);
+  const total = Math.max(0, subtotal + envioFee - descuento);
+
+  let cambioTxt = '';
+  if(pago === 'Efectivo'){
+    const cambio = document.querySelector('input[name="cambio"]:checked').value;
+    cambioTxt = cambio === 'Cambio' ? (document.getElementById('cambioMonto').value.trim() || 'Necesita cambio, monto no especificado') : 'Exacto';
+  }
+
+  return { nombre, telefono, entrega, referencia, ubicacion, pago, cambioTxt, notas, items: itemsResumen, subtotal, envioFee, descuento, total };
+}
+
 function buildMessage(){
   let lines = ['🍔 *Pedido Happy Burger*', ''];
   let subtotal = 0;
@@ -962,6 +1096,11 @@ document.querySelectorAll('input[name="cambio"]').forEach(radio=>{
   });
 });
 
+function enviarPorWhatsapp(){
+  const msg = buildMessage();
+  return 'https://wa.me/529618025610?text=' + encodeURIComponent(msg);
+}
+
 document.getElementById('sendBtn').addEventListener('click', ()=>{
   if(cfg.cerradoHoy){ alert('Hoy no estamos tomando pedidos.'); return; }
   const entrega = document.querySelector('input[name="entrega"]:checked').value;
@@ -969,10 +1108,43 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
     alert('Toca el mapa (o usa "Usar mi ubicación actual") para marcar dónde vives antes de enviar el pedido.');
     return;
   }
-  const msg = buildMessage();
-  const url = 'https://wa.me/529618025610?text=' + encodeURIComponent(msg);
-  window.open(url, '_blank');
+
+  const sendBtn = document.getElementById('sendBtn');
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Enviando...';
+
+  const orderData = buildOrderData();
+  const waUrl = enviarPorWhatsapp();
+
+  pedidosRef.add(Object.assign({}, orderData, {
+    estado: 'nuevo',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  })).then(doc=>{
+    if(orderData.telefono.length === 10){
+      const ganado = Math.round(orderData.total * HAPPYCARD_PCT);
+      clientesRef.doc(orderData.telefono).set({
+        saldo: firebase.firestore.FieldValue.increment(ganado - orderData.descuento),
+        ultimoPedido: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(()=>{});
+      document.getElementById('confirmHappyCard').textContent =
+        ganado > 0 ? `🎉 Ganaste $${ganado} en tu HappyCard.` : '';
+    } else {
+      document.getElementById('confirmHappyCard').textContent = '';
+    }
+    document.getElementById('confirmFolio').textContent = '#' + doc.id.slice(-6).toUpperCase();
+    document.getElementById('confirmWaBtn').href = waUrl;
+    document.getElementById('confirmScreen').classList.add('show');
+  }).catch(err=>{
+    console.error('No se pudo guardar el pedido:', err);
+    alert('No pudimos guardar tu pedido en el sistema, pero lo vamos a mandar por WhatsApp para que no se pierda.');
+    window.open(waUrl, '_blank');
+  }).finally(()=>{
+    sendBtn.disabled = false;
+    sendBtn.textContent = '📲 Enviar pedido';
+  });
 });
+
+document.getElementById('confirmNuevoBtn').addEventListener('click', ()=> location.reload());
 
 /* ===================== Panel privado (Firebase) ===================== */
 const ADMIN_EMAIL = 'happyburguermid@gmail.com';

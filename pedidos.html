@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Happy Burger — Panel de pedidos</title>
+<style>
+  :root{
+    --rojo:#e2231a; --rojo-2:#b81810; --amarillo:#ffc300;
+    --carbon:#181614; --crema:#fff8ec; --verde:#2e7d32; --azul:#1565c0;
+    --linea:rgba(24,22,20,0.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--crema);color:var(--carbon);font-family:'Segoe UI',Roboto,sans-serif;padding-bottom:30px;}
+  header{background:var(--carbon);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  header h1{font-size:18px;margin:0;color:var(--amarillo);}
+  header button{background:var(--rojo);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12.5px;}
+
+  .login-box{max-width:340px;margin:80px auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+  .login-box h2{margin-top:0;}
+  .login-box input{width:100%;padding:10px;border:1.5px solid var(--linea);border-radius:8px;margin-bottom:12px;font-size:14px;}
+  .login-box button{width:100%;background:var(--rojo);color:#fff;border:none;border-radius:8px;padding:12px;font-weight:800;cursor:pointer;}
+  .login-msg{color:var(--rojo-2);font-size:13px;font-weight:700;min-height:18px;}
+
+  .board{display:flex;gap:14px;padding:16px;overflow-x:auto;align-items:flex-start;}
+  .col{background:rgba(0,0,0,0.03);border-radius:12px;padding:10px;min-width:280px;flex:1;max-width:340px;}
+  .col h3{font-size:14px;margin:4px 6px 10px;display:flex;justify-content:space-between;}
+  .col h3 .count{background:var(--rojo);color:#fff;border-radius:999px;padding:1px 9px;font-size:12px;}
+
+  .card{background:#fff;border-radius:10px;padding:12px;margin-bottom:10px;border-left:5px solid var(--rojo);box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+  .card.preparando{border-left-color:var(--amarillo);}
+  .card.listo{border-left-color:var(--verde);}
+  .card.entregado{border-left-color:#999;opacity:0.6;}
+  .card .top{display:flex;justify-content:space-between;font-weight:800;font-size:14px;}
+  .card .hora{font-size:11px;color:#8a7f6c;font-weight:600;}
+  .card .linea{font-size:12.5px;margin-top:6px;line-height:1.5;}
+  .card .items{font-size:12.5px;margin:6px 0;padding-left:14px;}
+  .card .total{font-weight:800;color:var(--rojo-2);margin-top:4px;}
+  .card .btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .card .btns button, .card .btns a{
+    flex:1;text-align:center;border:none;border-radius:6px;padding:8px 6px;font-size:11.5px;font-weight:700;
+    cursor:pointer;text-decoration:none;white-space:nowrap;
+  }
+  .btn-avanzar{background:var(--azul);color:#fff;}
+  .btn-wa{background:#25D366;color:#fff;}
+  .btn-mapa{background:var(--amarillo);color:var(--carbon);}
+  .empty{color:#8a7f6c;font-size:12.5px;padding:10px;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="login-box" id="loginBox">
+  <h2>🔒 Panel de pedidos</h2>
+  <input type="email" id="loginEmail" placeholder="Correo" autocomplete="username">
+  <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password">
+  <button id="loginBtn">Entrar</button>
+  <div class="login-msg" id="loginMsg"></div>
+</div>
+
+<div id="panel" style="display:none;">
+  <header>
+    <h1>🍔 Happy Burger — Pedidos en vivo</h1>
+    <button id="logoutBtn">Cerrar sesión</button>
+  </header>
+  <div class="board">
+    <div class="col">
+      <h3>🆕 Nuevos <span class="count" id="countNuevo">0</span></h3>
+      <div id="colNuevo"></div>
+    </div>
+    <div class="col">
+      <h3>🍳 Preparando <span class="count" id="countPreparando">0</span></h3>
+      <div id="colPreparando"></div>
+    </div>
+    <div class="col">
+      <h3>✅ Listos <span class="count" id="countListo">0</span></h3>
+      <div id="colListo"></div>
+    </div>
+    <div class="col">
+      <h3>📦 Entregados hoy <span class="count" id="countEntregado">0</span></h3>
+      <div id="colEntregado"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAozb8W6RWr94KA6w3XoMz1rfZaOphpfzw",
+  authDomain: "happy-burger-ea229.firebaseapp.com",
+  projectId: "happy-burger-ea229",
+  storageBucket: "happy-burger-ea229.firebasestorage.app",
+  messagingSenderId: "596536020395",
+  appId: "1:596536020395:web:40bb7a3f18cc087b5516ee"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const ADMIN_EMAIL = 'happyburguermid@gmail.com';
+
+document.getElementById('loginBtn').addEventListener('click', ()=>{
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  auth.signInWithEmailAndPassword(email, password).catch(()=>{
+    document.getElementById('loginMsg').textContent = 'Correo o contraseña incorrectos.';
+  });
+});
+document.getElementById('logoutBtn').addEventListener('click', ()=> auth.signOut());
+
+let unsubscribe = null;
+let sonidoListo = false;
+let idsConocidos = new Set();
+
+function pitido(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.25);
+  }catch(e){}
+}
+
+auth.onAuthStateChanged(user=>{
+  const isAdmin = !!user && user.email === ADMIN_EMAIL;
+  document.getElementById('loginBox').style.display = isAdmin ? 'none' : 'block';
+  document.getElementById('panel').style.display = isAdmin ? 'block' : 'none';
+  if(isAdmin && !unsubscribe){
+    unsubscribe = db.collection('pedidos').orderBy('createdAt','desc').limit(100)
+      .onSnapshot(snap=>{
+        if(sonidoListo){
+          snap.docChanges().forEach(ch=>{
+            if(ch.type === 'added' && !idsConocidos.has(ch.doc.id)) pitido();
+          });
+        }
+        const pedidos = [];
+        snap.forEach(doc=>{ idsConocidos.add(doc.id); pedidos.push({id:doc.id, ...doc.data()}); });
+        sonidoListo = true;
+        renderTablero(pedidos);
+      });
+  } else if(user && !isAdmin){
+    auth.signOut();
+  }
+});
+
+function formatoHora(ts){
+  if(!ts || !ts.toDate) return '';
+  return ts.toDate().toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+}
+
+function textoWhatsapp(p){
+  let lines = ['🍔 *Pedido Happy Burger* #'+p.id.slice(-6).toUpperCase(), ''];
+  (p.items||[]).forEach(it=> lines.push(`${it.cantidad}x ${it.nombre} — $${it.precio}`));
+  lines.push('');
+  lines.push(`*Subtotal: $${p.subtotal}*`);
+  if(p.envioFee) lines.push(`*Envío: $${p.envioFee}*`);
+  if(p.descuento) lines.push(`*Descuento HappyCard: -$${p.descuento}*`);
+  lines.push(`*Total: $${p.total}*`);
+  lines.push('');
+  if(p.nombre) lines.push(`👤 *Nombre:* ${p.nombre}`);
+  if(p.telefono) lines.push(`📱 *Tel:* ${p.telefono}`);
+  lines.push(`🛵 *Entrega:* ${p.entrega}`);
+  if(p.ubicacion) lines.push(`📍 *Ubicación:* https://www.google.com/maps?q=${p.ubicacion.lat},${p.ubicacion.lng}`);
+  if(p.referencia) lines.push(`🏠 *Referencia:* ${p.referencia}`);
+  lines.push(`💰 *Pago:* ${p.pago}${p.cambioTxt ? ' ('+p.cambioTxt+')' : ''}`);
+  if(p.notas) lines.push(`📝 *Notas:* ${p.notas}`);
+  return lines.join('\n');
+}
+
+const siguienteEstado = { nuevo:'preparando', preparando:'listo', listo:'entregado' };
+const textoBoton = { nuevo:'👉 Marcar en preparación', preparando:'👉 Marcar listo', listo:'👉 Marcar entregado' };
+
+function avanzarEstado(id, actual){
+  const nuevo = siguienteEstado[actual];
+  if(!nuevo) return;
+  db.collection('pedidos').doc(id).update({ estado: nuevo }).catch(err=> alert('Error: '+err.message));
+}
+
+function tarjeta(p){
+  const estado = p.estado || 'nuevo';
+  const div = document.createElement('div');
+  div.className = 'card ' + estado;
+  const itemsHtml = (p.items||[]).map(it=>`<li>${it.cantidad}x ${it.nombre} — $${it.precio}</li>`).join('');
+  const avanzarBtn = textoBoton[estado] ? `<button class="btn-avanzar" data-id="${p.id}" data-estado="${estado}">${textoBoton[estado]}</button>` : '';
+  const mapaBtn = p.ubicacion ? `<a class="btn-mapa" href="https://www.google.com/maps?q=${p.ubicacion.lat},${p.ubicacion.lng}" target="_blank">📍 Mapa</a>` : '';
+  div.innerHTML = `
+    <div class="top"><span>${p.nombre || 'Sin nombre'} · #${p.id.slice(-6).toUpperCase()}</span><span class="hora">${formatoHora(p.createdAt)}</span></div>
+    <div class="linea">🛵 ${p.entrega}${p.telefono ? ' · 📱 '+p.telefono : ''}</div>
+    <ul class="items">${itemsHtml}</ul>
+    <div class="linea total">Total: $${p.total}${p.descuento ? ` (con $${p.descuento} de HappyCard)` : ''}</div>
+    <div class="linea">💰 ${p.pago}${p.cambioTxt ? ' — '+p.cambioTxt : ''}</div>
+    ${p.referencia ? `<div class="linea">🏠 ${p.referencia}</div>` : ''}
+    ${p.notas ? `<div class="linea">📝 ${p.notas}</div>` : ''}
+    <div class="btns">
+      ${avanzarBtn}
+      <a class="btn-wa" href="https://wa.me/?text=${encodeURIComponent(textoWhatsapp(p))}" target="_blank">📲 WhatsApp</a>
+      ${mapaBtn}
+    </div>
+  `;
+  const btn = div.querySelector('.btn-avanzar');
+  if(btn) btn.addEventListener('click', ()=> avanzarEstado(btn.dataset.id, btn.dataset.estado));
+  return div;
+}
+
+function renderTablero(pedidos){
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const cols = { nuevo:[], preparando:[], listo:[], entregado:[] };
+  pedidos.forEach(p=>{
+    const estado = p.estado || 'nuevo';
+    if(estado === 'entregado'){
+      const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : null;
+      if(fecha && fecha >= hoy) cols.entregado.push(p);
+    } else if(cols[estado]){
+      cols[estado].push(p);
+    }
+  });
+  for(const key in cols){
+    const contenedor = document.getElementById('col'+key.charAt(0).toUpperCase()+key.slice(1));
+    contenedor.innerHTML = '';
+    if(cols[key].length === 0){
+      contenedor.innerHTML = '<div class="empty">Sin pedidos</div>';
+    } else {
+      cols[key].forEach(p=> contenedor.appendChild(tarjeta(p)));
+    }
+    document.getElementById('count'+key.charAt(0).toUpperCase()+key.slice(1)).textContent = cols[key].length;
+  }
+}
+</script>
+</body>
+</html>
