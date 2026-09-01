@@ -325,8 +325,8 @@
     </div>
 
     <div class="campo" id="refSection" style="display:none;">
-      <label>Referencia de tu casa (color, coche, seña...)</label>
-      <input type="text" id="referencia" placeholder="Ej. casa color verde, portón negro, hay un carro rojo afuera">
+      <label>Dirección y referencia de tu casa (obligatorio) — calle, número, colonia, color de casa, seña...</label>
+      <input type="text" id="referencia" placeholder="Ej. Calle 20 #145, Fracc. Las Américas, casa color verde, portón negro">
     </div>
 
     <div class="campo">
@@ -1122,9 +1122,17 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
   }
 
   const entrega = document.querySelector('input[name="entrega"]:checked').value;
-  if(entrega === 'Envío a domicilio' && pin.lat === null){
-    alert('Toca el mapa (o usa "Usar mi ubicación actual") para marcar dónde vives antes de enviar el pedido.');
-    return;
+  if(entrega === 'Envío a domicilio'){
+    const referenciaInput = document.getElementById('referencia');
+    if(!referenciaInput.value.trim()){
+      if(pin.lat === null){
+        alert('Toca el mapa para marcar dónde vives, o escribe tu dirección completa (calle, número, colonia) para poder enviar el pedido.');
+      } else {
+        alert('Escribe tu dirección y una referencia de tu casa para poder enviar el pedido.');
+      }
+      referenciaInput.focus();
+      return;
+    }
   }
 
   const sendBtn = document.getElementById('sendBtn');

@@ -45,6 +45,31 @@
   .btn-wa{background:#25D366;color:#fff;}
   .btn-mapa{background:var(--amarillo);color:var(--carbon);}
   .empty{color:#8a7f6c;font-size:12.5px;padding:10px;text-align:center;}
+  .ventas{background:var(--verde);color:#fff;border-radius:6px;padding:8px 14px;font-weight:800;font-size:13px;}
+  .timer{font-size:11px;font-weight:800;background:#eee;border-radius:6px;padding:2px 7px;margin-left:6px;}
+  .timer.aviso{background:#fff3cd;color:#8a6d00;}
+  .timer.urgente{background:#fdecea;color:var(--rojo-2);}
+  .btn-editar{background:#6c5ce7;color:#fff;}
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;padding:14px;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:#fff;border-radius:12px;padding:20px;max-width:420px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal-box h3{margin-top:0;}
+  .edit-row{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
+  .edit-row input[type="text"]{flex:2;}
+  .edit-row input[type="number"]{flex:1;width:0;}
+  .modal-box input, .modal-box textarea{border:1.5px solid var(--linea);border-radius:6px;padding:7px;font-size:13px;}
+  .edit-row button{background:var(--rojo-2);color:#fff;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-weight:800;}
+  .add-row-btn{background:var(--azul);color:#fff;border:none;border-radius:6px;padding:8px;width:100%;font-weight:700;cursor:pointer;margin-bottom:10px;}
+  .modal-totales{display:flex;flex-direction:column;gap:6px;margin:10px 0;}
+  .modal-totales label{font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .modal-totales input{width:100px;text-align:right;}
+  .modal-total-final{font-weight:800;font-size:16px;color:var(--rojo-2);text-align:right;}
+  .modal-box textarea{width:100%;min-height:50px;margin-bottom:10px;}
+  .modal-btns{display:flex;gap:8px;margin-top:10px;}
+  .modal-btns button{flex:1;border:none;border-radius:8px;padding:10px;font-weight:800;cursor:pointer;}
+  .btn-guardar{background:var(--verde);color:#fff;}
+  .btn-cancelar{background:#ccc;color:var(--carbon);}
 </style>
 </head>
 <body>
@@ -60,6 +85,7 @@
 <div id="panel" style="display:none;">
   <header>
     <h1>🍔 Happy Burger — Pedidos en vivo <span id="estadoConexion" style="font-size:11px;font-weight:400;">🟡 conectando...</span></h1>
+    <span class="ventas" id="ventasHoy">💵 Ventas de hoy: $0</span>
     <button id="logoutBtn">Cerrar sesión</button>
   </header>
   <div class="board">
@@ -78,6 +104,29 @@
     <div class="col">
       <h3>📦 Entregados hoy <span class="count" id="countEntregado">0</span></h3>
       <div id="colEntregado"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editOverlay">
+  <div class="modal-box">
+    <h3>✏️ Editar pedido <span id="editFolio"></span></h3>
+    <div class="edit-row" style="font-size:11px;font-weight:800;color:#8a7f6c;">
+      <span style="flex:1;">Cant</span><span style="flex:2;">Producto</span><span style="flex:1;">$ Total línea</span><span style="width:28px;"></span>
+    </div>
+    <div id="editRows"></div>
+    <button class="add-row-btn" id="editAddRow">+ Agregar producto</button>
+    <div class="modal-totales">
+      <label>Subtotal <span id="editSubtotal">$0</span></label>
+      <label>Envío <input type="number" id="editEnvio" min="0"></label>
+      <label>Descuento HappyCard <input type="number" id="editDescuento" min="0"></label>
+    </div>
+    <div class="modal-total-final">Total: $<span id="editTotalFinal">0</span></div>
+    <label style="font-size:12px;font-weight:700;">Notas</label>
+    <textarea id="editNotas"></textarea>
+    <div class="modal-btns">
+      <button class="btn-cancelar" id="editCancelar">Cancelar</button>
+      <button class="btn-guardar" id="editGuardar">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -112,6 +161,7 @@ let unsubscribe = null;
 let sonidoListo = false;
 let idsConocidos = new Set();
 let wakeLock = null;
+let pedidosCache = {};
 
 function pitido(){
   try{
@@ -190,6 +240,22 @@ function formatoHora(ts){
   return ts.toDate().toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
 }
 
+function textoCronometro(minutos){
+  if(minutos < 60) return `⏱ ${minutos} min`;
+  return `⏱ ${Math.floor(minutos/60)}h ${minutos%60}min`;
+}
+
+function actualizarCronometros(){
+  document.querySelectorAll('.timer').forEach(el=>{
+    const creado = Number(el.dataset.created);
+    if(!creado) return;
+    const minutos = Math.max(0, Math.floor((Date.now() - creado) / 60000));
+    el.textContent = textoCronometro(minutos);
+    el.className = 'timer' + (minutos >= 30 ? ' urgente' : minutos >= 15 ? ' aviso' : '');
+  });
+}
+setInterval(actualizarCronometros, 15000);
+
 function textoWhatsapp(p){
   let lines = ['🍔 *Pedido Happy Burger* #'+p.id.slice(-6).toUpperCase(), ''];
   (p.items||[]).forEach(it=> lines.push(`${it.cantidad}x ${it.nombre} — $${it.precio}`));
@@ -225,8 +291,9 @@ function tarjeta(p){
   const itemsHtml = (p.items||[]).map(it=>`<li>${it.cantidad}x ${it.nombre} — $${it.precio}</li>`).join('');
   const avanzarBtn = textoBoton[estado] ? `<button class="btn-avanzar" data-id="${p.id}" data-estado="${estado}">${textoBoton[estado]}</button>` : '';
   const mapaBtn = p.ubicacion ? `<a class="btn-mapa" href="https://www.google.com/maps?q=${p.ubicacion.lat},${p.ubicacion.lng}" target="_blank">📍 Mapa</a>` : '';
+  const creadoMs = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().getTime() : 0;
   div.innerHTML = `
-    <div class="top"><span>${p.nombre || 'Sin nombre'} · #${p.id.slice(-6).toUpperCase()}</span><span class="hora">${formatoHora(p.createdAt)}</span></div>
+    <div class="top"><span>${p.nombre || 'Sin nombre'} · #${p.id.slice(-6).toUpperCase()}</span><span class="hora">${formatoHora(p.createdAt)}<span class="timer" data-created="${creadoMs}"></span></span></div>
     <div class="linea">🛵 ${p.entrega}${p.telefono ? ' · 📱 '+p.telefono : ''}</div>
     <ul class="items">${itemsHtml}</ul>
     <div class="linea total">Total: $${p.total}${p.descuento ? ` (con $${p.descuento} de HappyCard)` : ''}</div>
@@ -235,27 +302,34 @@ function tarjeta(p){
     ${p.notas ? `<div class="linea">📝 ${p.notas}</div>` : ''}
     <div class="btns">
       ${avanzarBtn}
+      <button class="btn-editar" data-id="${p.id}">✏️ Editar</button>
       <a class="btn-wa" href="https://wa.me/?text=${encodeURIComponent(textoWhatsapp(p))}" target="_blank">📲 WhatsApp</a>
       ${mapaBtn}
     </div>
   `;
   const btn = div.querySelector('.btn-avanzar');
   if(btn) btn.addEventListener('click', ()=> avanzarEstado(btn.dataset.id, btn.dataset.estado));
+  div.querySelector('.btn-editar').addEventListener('click', ()=> abrirEditor(p.id));
   return div;
 }
 
 function renderTablero(pedidos){
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const cols = { nuevo:[], preparando:[], listo:[], entregado:[] };
+  pedidosCache = {};
+  let ventasHoy = 0;
   pedidos.forEach(p=>{
+    pedidosCache[p.id] = p;
     const estado = p.estado || 'nuevo';
+    const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : null;
+    if(fecha && fecha >= hoy) ventasHoy += Number(p.total) || 0;
     if(estado === 'entregado'){
-      const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : null;
       if(fecha && fecha >= hoy) cols.entregado.push(p);
     } else if(cols[estado]){
       cols[estado].push(p);
     }
   });
+  document.getElementById('ventasHoy').textContent = `💵 Ventas de hoy: $${ventasHoy}`;
   for(const key in cols){
     const contenedor = document.getElementById('col'+key.charAt(0).toUpperCase()+key.slice(1));
     contenedor.innerHTML = '';
@@ -266,7 +340,88 @@ function renderTablero(pedidos){
     }
     document.getElementById('count'+key.charAt(0).toUpperCase()+key.slice(1)).textContent = cols[key].length;
   }
+  actualizarCronometros();
 }
+
+/* ===================== Editor de pedidos ===================== */
+let editandoId = null;
+
+function filaEditor(item){
+  const row = document.createElement('div');
+  row.className = 'edit-row';
+  row.innerHTML = `
+    <input type="number" class="ed-cant" min="1" value="${item.cantidad}">
+    <input type="text" class="ed-nombre" value="${item.nombre.replace(/"/g,'&quot;')}">
+    <input type="number" class="ed-precio" min="0" value="${item.precio}">
+    <button type="button">✕</button>
+  `;
+  row.querySelectorAll('input').forEach(inp=> inp.addEventListener('input', recalcularEdicion));
+  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); recalcularEdicion(); });
+  return row;
+}
+
+function abrirEditor(id){
+  const p = pedidosCache[id];
+  if(!p) return;
+  editandoId = id;
+  document.getElementById('editFolio').textContent = '#' + id.slice(-6).toUpperCase();
+  const rows = document.getElementById('editRows');
+  rows.innerHTML = '';
+  (p.items||[]).forEach(it=> rows.appendChild(filaEditor(it)));
+  document.getElementById('editEnvio').value = p.envioFee || 0;
+  document.getElementById('editDescuento').value = p.descuento || 0;
+  document.getElementById('editNotas').value = p.notas || '';
+  recalcularEdicion();
+  document.getElementById('editOverlay').classList.add('show');
+}
+
+function recalcularEdicion(){
+  let subtotal = 0;
+  document.querySelectorAll('#editRows .edit-row').forEach(row=>{
+    subtotal += Number(row.querySelector('.ed-precio').value) || 0;
+  });
+  const envio = Number(document.getElementById('editEnvio').value) || 0;
+  const descuento = Number(document.getElementById('editDescuento').value) || 0;
+  const total = Math.max(0, subtotal + envio - descuento);
+  document.getElementById('editSubtotal').textContent = '$' + subtotal;
+  document.getElementById('editTotalFinal').textContent = total;
+}
+
+document.getElementById('editEnvio').addEventListener('input', recalcularEdicion);
+document.getElementById('editDescuento').addEventListener('input', recalcularEdicion);
+
+document.getElementById('editAddRow').addEventListener('click', ()=>{
+  document.getElementById('editRows').appendChild(filaEditor({cantidad:1, nombre:'', precio:0}));
+  recalcularEdicion();
+});
+
+document.getElementById('editCancelar').addEventListener('click', ()=>{
+  document.getElementById('editOverlay').classList.remove('show');
+  editandoId = null;
+});
+
+document.getElementById('editGuardar').addEventListener('click', ()=>{
+  if(!editandoId) return;
+  const items = [];
+  document.querySelectorAll('#editRows .edit-row').forEach(row=>{
+    const cantidad = Number(row.querySelector('.ed-cant').value) || 0;
+    const nombre = row.querySelector('.ed-nombre').value.trim();
+    const precio = Number(row.querySelector('.ed-precio').value) || 0;
+    if(nombre && cantidad > 0) items.push({ cantidad, nombre, precio });
+  });
+  const subtotal = items.reduce((sum,it)=> sum + it.precio, 0);
+  const envioFee = Number(document.getElementById('editEnvio').value) || 0;
+  const descuento = Number(document.getElementById('editDescuento').value) || 0;
+  const total = Math.max(0, subtotal + envioFee - descuento);
+  const notas = document.getElementById('editNotas').value.trim();
+
+  db.collection('pedidos').doc(editandoId).update({ items, subtotal, envioFee, descuento, total, notas })
+    .then(()=>{
+      document.getElementById('editOverlay').classList.remove('show');
+      editandoId = null;
+    })
+    .catch(err=> alert('No se pudo guardar: ' + err.message));
+});
 </script>
 </body>
 </html>
