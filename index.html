@@ -911,12 +911,30 @@ function buildOrderData(){
   const total = Math.max(0, subtotal + envioFee - descuento);
 
   let cambioTxt = '';
+  let vuelto = null;
+  let montoPagado = null;
   if(pago === 'Efectivo'){
     const cambio = document.querySelector('input[name="cambio"]:checked').value;
-    cambioTxt = cambio === 'Cambio' ? (document.getElementById('cambioMonto').value.trim() || 'Necesita cambio, monto no especificado') : 'Exacto';
+    if(cambio === 'Cambio'){
+      const montoRaw = document.getElementById('cambioMonto').value.trim();
+      const montoNum = parseFloat(montoRaw.replace(/[^0-9.]/g, ''));
+      if(!isNaN(montoNum) && montoNum > 0){
+        montoPagado = montoNum;
+        if(montoNum >= total){
+          vuelto = Number((montoNum - total).toFixed(2));
+          cambioTxt = `Paga con $${montoNum}`;
+        } else {
+          cambioTxt = `Paga con $${montoNum} — ¡no alcanza a cubrir el total!`;
+        }
+      } else {
+        cambioTxt = montoRaw ? `Paga con ${montoRaw}` : 'Necesita cambio, monto no especificado';
+      }
+    } else {
+      cambioTxt = 'Exacto';
+    }
   }
 
-  return { nombre, telefono, entrega, referencia, ubicacion, pago, cambioTxt, notas, items: itemsResumen, subtotal, envioFee, descuento, total };
+  return { nombre, telefono, entrega, referencia, ubicacion, pago, cambioTxt, montoPagado, vuelto, notas, items: itemsResumen, subtotal, envioFee, descuento, total };
 }
 
 function buildMessage(){

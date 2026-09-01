@@ -286,7 +286,9 @@ function textoWhatsapp(p){
   lines.push(`🛵 *Entrega:* ${p.entrega}`);
   if(p.ubicacion) lines.push(`📍 *Ubicación:* https://www.google.com/maps?q=${p.ubicacion.lat},${p.ubicacion.lng}`);
   if(p.referencia) lines.push(`🏠 *Referencia:* ${p.referencia}`);
-  lines.push(`💰 *Pago:* ${p.pago}${p.cambioTxt ? ' ('+p.cambioTxt+')' : ''}`);
+  let pagoLinea = `💰 *Pago:* ${p.pago}${p.cambioTxt ? ' ('+p.cambioTxt+')' : ''}`;
+  if(p.vuelto !== null && p.vuelto !== undefined) pagoLinea += ` — *llevar $${p.vuelto} de cambio*`;
+  lines.push(pagoLinea);
   if(p.notas) lines.push(`📝 *Notas:* ${p.notas}`);
   return lines.join('\n');
 }
@@ -314,7 +316,7 @@ function tarjeta(p){
     <ul class="items">${itemsHtml}</ul>
     ${p.envioFee > 0 ? `<div class="linea">🛵 Envío: $${p.envioFee}</div>` : (p.entrega === 'Envío a domicilio' ? `<div class="linea">🛵 Envío: sin costo 🎉</div>` : '')}
     <div class="linea total">Total: $${p.total}${p.descuento ? ` (con $${p.descuento} de HappyCard)` : ''}</div>
-    <div class="linea">💰 ${p.pago}${p.cambioTxt ? ' — '+p.cambioTxt : ''}</div>
+    <div class="linea">💰 ${p.pago}${p.cambioTxt ? ' — '+p.cambioTxt : ''}${(p.vuelto !== null && p.vuelto !== undefined) ? ` — <strong>llevar $${p.vuelto} de cambio</strong>` : ''}</div>
     ${p.referencia ? `<div class="linea">🏠 ${p.referencia}</div>` : ''}
     ${p.notas ? `<div class="linea">📝 ${p.notas}</div>` : ''}
     <div class="btns">
