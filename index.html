@@ -374,6 +374,22 @@
       <input type="text" id="cfgPromoPrecio" inputmode="numeric" placeholder="Ej. 190">
       <label>Descripción de la promo</label>
       <textarea id="cfgPromoDesc" placeholder="Ej. Precio especial solo por hoy (antes $260). Incluye pan de ajo."></textarea>
+      <label>Foto de la promo (reusa una que ya existe)</label>
+      <select id="cfgPromoImagen">
+        <option value="">Sin foto</option>
+        <option value="papas">Papas a la francesa</option>
+        <option value="tenders">Tenders de pollo</option>
+        <option value="boneless8">Boneless</option>
+        <option value="crunchy">Crunchy Chicken</option>
+        <option value="clasica">Happy Clásica</option>
+        <option value="bbqbacon">BBQ Bacon Crunch</option>
+        <option value="pineapple">Pineapple Burger</option>
+        <option value="habanero">Habanero Burger</option>
+        <option value="mushroom">Garlic Mushroom Burger</option>
+        <option value="beast">Beast Mode Burger</option>
+        <option value="tocinuda">La Tocinuda</option>
+        <option value="pasta">Pasta</option>
+      </select>
 
       <div class="admin-toggle">
         <span>🚫 Hoy no hay envío a domicilio</span>
@@ -491,12 +507,15 @@ function insertarPromo(promo){
     id:'promo-hoy',
     name: promo.promoNombre || 'Promo del día',
     price: Number(promo.promoPrecio) || 0,
-    desc: promo.promoDesc || ''
+    desc: promo.promoDesc || '',
+    imagenId: promo.promoImagenId || ''
   };
   const firma = JSON.stringify(promoItem);
   const actual = menu["🔥 Promo de hoy"];
   if(actual && actual[0] && actual[0]._firma === firma) return false; // sin cambios
   promoItem._firma = firma;
+  if(itemThumbs[promoItem.imagenId]) itemThumbs['promo-hoy'] = itemThumbs[promoItem.imagenId];
+  else delete itemThumbs['promo-hoy'];
   // Reconstruir menu con la promo primero, conservando el resto del orden
   const nuevoMenu = Object.assign({"🔥 Promo de hoy":[promoItem]}, menu);
   for(const k in menu) delete menu[k];
@@ -508,6 +527,7 @@ function quitarPromo(){
   if(!menu["🔥 Promo de hoy"]) return false;
   delete menu["🔥 Promo de hoy"];
   delete state['promo-hoy'];
+  delete itemThumbs['promo-hoy'];
   return true;
 }
 function syncCartDisplay(){
@@ -547,7 +567,6 @@ const itemThumbs = {
   "clasica": {thumb:'prodClasicaThumb', zoom:'prodClasicaZoom'},
   "bbqbacon": {thumb:'prodBbqbaconThumb', zoom:'prodBbqbaconZoom'},
   "pasta": {thumb:'prodPastaThumb', zoom:'prodPastaZoom'},
-  "promo-2pastas": {thumb:'prodPastaThumb', zoom:'prodPastaZoom'},
   "pineapple": {thumb:'prodPineappleThumb', zoom:'prodPineappleZoom'},
   "papas": {thumb:'prodPapasThumb', zoom:'prodPapasZoom'},
   "boneless8": {thumb:'prodBonelessThumb', zoom:'prodBonelessZoom'},
@@ -900,10 +919,14 @@ function solicitarUbicacion(){
         alert('Tu ubicación se marcó, pero el GPS no dio una señal muy precisa (±' + Math.round(pos.coords.accuracy) + 'm). Si no cae justo en tu casa, ajusta el pin arrastrándolo o tocando el mapa.');
       }
     },
-    () => {
+    err => {
       btn.textContent = textoOriginal;
       btn.disabled = false;
-      alert('No pudimos obtener tu ubicación automáticamente. Toca directamente el mapa para marcar dónde vives.');
+      if(err.code === err.PERMISSION_DENIED){
+        alert('Bloqueaste el permiso de ubicación para esta página. Para activarlo: toca el candado o los "⋮" junto a la dirección del navegador → Permisos del sitio → Ubicación → Permitir, y vuelve a intentar. Mientras tanto, puedes tocar directamente el mapa para marcar dónde vives.');
+      } else {
+        alert('No pudimos obtener tu ubicación automáticamente. Toca directamente el mapa para marcar dónde vives.');
+      }
     },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   );
@@ -962,6 +985,7 @@ function applySettings(s){
     promoNombre: s.promoNombre || '2 Pastas',
     promoPrecio: s.promoPrecio || 190,
     promoDesc: s.promoDesc || 'Precio especial solo por hoy. Pregunta por los detalles al hacer tu pedido.',
+    promoImagenId: s.promoImagenId || '',
     sinEnvioHoy: !!s.sinEnvioHoy,
     mensajeSinEnvio: s.mensajeSinEnvio || 'Hoy no tenemos servicio a domicilio, solo puedes recoger en el local.'
   };
@@ -1043,6 +1067,7 @@ auth.onAuthStateChanged(user=>{
     document.getElementById('cfgPromoNombre').value = cfg.promoNombre;
     document.getElementById('cfgPromoPrecio').value = cfg.promoPrecio;
     document.getElementById('cfgPromoDesc').value = cfg.promoDesc;
+    document.getElementById('cfgPromoImagen').value = cfg.promoImagenId;
     document.getElementById('cfgSinEnvio').checked = cfg.sinEnvioHoy;
     document.getElementById('cfgMensajeSinEnvio').value = cfg.mensajeSinEnvio;
   } else if(user){
@@ -1059,6 +1084,7 @@ document.getElementById('adminGuardarBtn').addEventListener('click', ()=>{
     promoNombre: document.getElementById('cfgPromoNombre').value.trim(),
     promoPrecio: Number(document.getElementById('cfgPromoPrecio').value) || 0,
     promoDesc: document.getElementById('cfgPromoDesc').value.trim(),
+    promoImagenId: document.getElementById('cfgPromoImagen').value,
     sinEnvioHoy: document.getElementById('cfgSinEnvio').checked,
     mensajeSinEnvio: document.getElementById('cfgMensajeSinEnvio').value.trim()
   };
