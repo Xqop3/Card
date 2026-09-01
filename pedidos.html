@@ -54,6 +54,12 @@
   .timer.aviso{background:#fff3cd;color:#8a6d00;}
   .timer.urgente{background:#fdecea;color:var(--rojo-2);}
   .btn-editar{background:#6c5ce7;color:#fff;}
+  .ruta-box{background:#fff;border-radius:10px;padding:12px;margin-bottom:12px;border-left:5px solid #6c5ce7;box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+  .ruta-box ol{margin:8px 0;padding-left:20px;font-size:13.5px;line-height:1.7;}
+  .ruta-box a.abrir-maps{
+    display:block;text-align:center;background:#1565c0;color:#fff;text-decoration:none;
+    border-radius:8px;padding:10px;font-weight:800;font-size:13px;margin-top:8px;
+  }
 
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;padding:14px;}
   .modal-overlay.show{display:flex;}
@@ -107,6 +113,8 @@
     </div>
     <div class="col">
       <h3>✅ Listos <span class="count" id="countListo">0</span></h3>
+      <button id="optimizarRutaBtn" style="width:100%;background:#6c5ce7;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:10px;">🗺️ Optimizar ruta del repartidor</button>
+      <div id="rutaResultado"></div>
       <div id="colListo"></div>
     </div>
     <div class="col">
@@ -437,6 +445,86 @@ document.getElementById('editGuardar').addEventListener('click', ()=>{
       editandoId = null;
     })
     .catch(err=> alert('No se pudo guardar: ' + err.message));
+});
+
+/* ===================== Ruta óptima del repartidor ===================== */
+const CENTER_LAT = 20.9311918;
+const CENTER_LNG = -89.5921314;
+
+function permutacionesOptimas(matriz){
+  const n = matriz.length;
+  const paradas = Array.from({length:n-1}, (_,i)=> i+1);
+  if(paradas.length <= 7){
+    let mejor = null, mejorDist = Infinity;
+    (function permutar(restantes, actual){
+      if(restantes.length === 0){
+        let dist = 0, prev = 0;
+        for(const idx of actual){ dist += matriz[prev][idx]; prev = idx; }
+        if(dist < mejorDist){ mejorDist = dist; mejor = actual.slice(); }
+        return;
+      }
+      for(let i=0;i<restantes.length;i++){
+        const resto = restantes.slice(0,i).concat(restantes.slice(i+1));
+        permutar(resto, actual.concat(restantes[i]));
+      }
+    })(paradas, []);
+    return mejor;
+  }
+  // Con muchas paradas, fuerza bruta sería demasiado lento: usamos vecino más cercano.
+  let restantes = paradas.slice();
+  let ruta = [];
+  let actual = 0;
+  while(restantes.length){
+    restantes.sort((a,b)=> matriz[actual][a] - matriz[actual][b]);
+    actual = restantes.shift();
+    ruta.push(actual);
+  }
+  return ruta;
+}
+
+document.getElementById('optimizarRutaBtn').addEventListener('click', async ()=>{
+  const box = document.getElementById('rutaResultado');
+  const paradas = Object.values(pedidosCache).filter(p =>
+    (p.estado || 'nuevo') === 'listo' && p.entrega === 'Envío a domicilio' && p.ubicacion && p.ubicacion.lat
+  );
+  if(paradas.length === 0){
+    box.innerHTML = '<div class="empty">No hay pedidos listos con envío y ubicación marcada.</div>';
+    return;
+  }
+  if(paradas.length === 1){
+    const p = paradas[0];
+    box.innerHTML = `<div class="ruta-box">Solo hay un pedido listo: <strong>${p.nombre}</strong>.<br>
+      <a class="abrir-maps" href="https://www.google.com/maps/dir/?api=1&origin=${CENTER_LAT},${CENTER_LNG}&destination=${p.ubicacion.lat},${p.ubicacion.lng}&travelmode=driving" target="_blank">🗺️ Abrir ruta en Google Maps</a></div>`;
+    return;
+  }
+
+  box.innerHTML = '<div class="ruta-box">📡 Calculando la mejor ruta...</div>';
+
+  const puntos = [[CENTER_LNG, CENTER_LAT]].concat(paradas.map(p => [p.ubicacion.lng, p.ubicacion.lat]));
+  const coordsStr = puntos.map(pt => pt.join(',')).join(';');
+
+  try{
+    const res = await fetch(`https://router.project-osrm.org/table/v1/driving/${coordsStr}?annotations=distance`);
+    const data = await res.json();
+    if(data.code !== 'Ok') throw new Error('OSRM sin resultado');
+    const orden = permutacionesOptimas(data.distances);
+    const paradasOrdenadas = orden.map(idx => paradas[idx - 1]);
+
+    const listaHtml = paradasOrdenadas.map((p,i)=>
+      `<li><strong>${p.nombre}</strong>${p.referencia ? ' — ' + p.referencia : ''} (#${p.id.slice(-6).toUpperCase()})</li>`
+    ).join('');
+
+    const destino = paradasOrdenadas[paradasOrdenadas.length - 1];
+    const intermedias = paradasOrdenadas.slice(0, -1).map(p => `${p.ubicacion.lat},${p.ubicacion.lng}`).join('|');
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${CENTER_LAT},${CENTER_LNG}` +
+      `&destination=${destino.ubicacion.lat},${destino.ubicacion.lng}` +
+      (intermedias ? `&waypoints=${intermedias}` : '') + `&travelmode=driving`;
+
+    box.innerHTML = `<div class="ruta-box">📍 Orden sugerido de entrega:<ol>${listaHtml}</ol>
+      <a class="abrir-maps" href="${mapsUrl}" target="_blank">🗺️ Abrir ruta en Google Maps</a></div>`;
+  }catch(e){
+    box.innerHTML = '<div class="ruta-box">⚠️ No se pudo calcular la ruta (sin internet o el servicio no respondió). Intenta de nuevo.</div>';
+  }
 });
 </script>
 </body>
