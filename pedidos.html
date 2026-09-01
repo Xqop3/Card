@@ -59,7 +59,7 @@
 
 <div id="panel" style="display:none;">
   <header>
-    <h1>🍔 Happy Burger — Pedidos en vivo</h1>
+    <h1>🍔 Happy Burger — Pedidos en vivo <span id="estadoConexion" style="font-size:11px;font-weight:400;">🟡 conectando...</span></h1>
     <button id="logoutBtn">Cerrar sesión</button>
   </header>
   <div class="board">
@@ -111,6 +111,7 @@ document.getElementById('logoutBtn').addEventListener('click', ()=> auth.signOut
 let unsubscribe = null;
 let sonidoListo = false;
 let idsConocidos = new Set();
+let wakeLock = null;
 
 function pitido(){
   try{
@@ -125,13 +126,26 @@ function pitido(){
   }catch(e){}
 }
 
-auth.onAuthStateChanged(user=>{
-  const isAdmin = !!user && user.email === ADMIN_EMAIL;
-  document.getElementById('loginBox').style.display = isAdmin ? 'none' : 'block';
-  document.getElementById('panel').style.display = isAdmin ? 'block' : 'none';
-  if(isAdmin && !unsubscribe){
-    unsubscribe = db.collection('pedidos').orderBy('createdAt','desc').limit(100)
-      .onSnapshot(snap=>{
+function marcarEstado(txt){
+  const el = document.getElementById('estadoConexion');
+  if(el) el.textContent = txt;
+}
+
+async function pedirPantallaEncendida(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  }catch(e){ /* el navegador no lo soporta o la pantalla está oculta, no pasa nada */ }
+}
+
+function conectarListener(){
+  if(unsubscribe) unsubscribe();
+  marcarEstado('🟡 conectando...');
+  unsubscribe = db.collection('pedidos').orderBy('createdAt','desc').limit(100)
+    .onSnapshot(
+      snap=>{
+        marcarEstado('🟢 en vivo');
         if(sonidoListo){
           snap.docChanges().forEach(ch=>{
             if(ch.type === 'added' && !idsConocidos.has(ch.doc.id)) pitido();
@@ -141,9 +155,33 @@ auth.onAuthStateChanged(user=>{
         snap.forEach(doc=>{ idsConocidos.add(doc.id); pedidos.push({id:doc.id, ...doc.data()}); });
         sonidoListo = true;
         renderTablero(pedidos);
-      });
+      },
+      err=>{
+        console.error('Error del listener de pedidos:', err);
+        marcarEstado('🔴 sin conexión — reintentando...');
+        setTimeout(conectarListener, 3000);
+      }
+    );
+}
+
+auth.onAuthStateChanged(user=>{
+  const isAdmin = !!user && user.email === ADMIN_EMAIL;
+  document.getElementById('loginBox').style.display = isAdmin ? 'none' : 'block';
+  document.getElementById('panel').style.display = isAdmin ? 'block' : 'none';
+  if(isAdmin && !unsubscribe){
+    conectarListener();
+    pedirPantallaEncendida();
   } else if(user && !isAdmin){
     auth.signOut();
+  }
+});
+
+// Cuando la pantalla del celular se apaga, la pestaña se pausa y pierde la conexión en vivo.
+// Al volver, forzamos reconectar el listener y re-pedimos que la pantalla no se apague.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && auth.currentUser){
+    conectarListener();
+    pedirPantallaEncendida();
   }
 });
 

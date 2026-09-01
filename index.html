@@ -300,7 +300,7 @@
     </div>
 
     <div class="campo">
-      <label>📱 Tu WhatsApp (para tu HappyCard y para avisarte de tu pedido)</label>
+      <label>📱 Tu WhatsApp (obligatorio — para tu HappyCard y para avisarte de tu pedido)</label>
       <input type="tel" id="telefono" placeholder="Ej. 9611234567" maxlength="10">
       <div id="happyCardInfo" class="happycard-box" style="display:none;"></div>
     </div>
@@ -368,7 +368,6 @@
     <p>Ya lo tenemos en cocina, en breve empezamos a prepararlo.</p>
     <p>Folio: <span class="folio" id="confirmFolio"></span></p>
     <p id="confirmHappyCard"></p>
-    <a href="#" target="_blank" class="wa-btn" id="confirmWaBtn">📲 Reenviar por WhatsApp</a>
     <button class="new-order-btn" id="confirmNuevoBtn">Hacer otro pedido</button>
   </div>
 </div>
@@ -1103,6 +1102,20 @@ function enviarPorWhatsapp(){
 
 document.getElementById('sendBtn').addEventListener('click', ()=>{
   if(cfg.cerradoHoy){ alert('Hoy no estamos tomando pedidos.'); return; }
+
+  const nombreInput = document.getElementById('nombre');
+  const telefonoInput = document.getElementById('telefono');
+  if(!nombreInput.value.trim()){
+    alert('Escribe tu nombre para poder enviar el pedido.');
+    nombreInput.focus();
+    return;
+  }
+  if(telefonoInput.value.replace(/\D/g,'').length !== 10){
+    alert('Escribe tu número de WhatsApp a 10 dígitos para poder enviar el pedido.');
+    telefonoInput.focus();
+    return;
+  }
+
   const entrega = document.querySelector('input[name="entrega"]:checked').value;
   if(entrega === 'Envío a domicilio' && pin.lat === null){
     alert('Toca el mapa (o usa "Usar mi ubicación actual") para marcar dónde vives antes de enviar el pedido.');
@@ -1132,7 +1145,6 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
       document.getElementById('confirmHappyCard').textContent = '';
     }
     document.getElementById('confirmFolio').textContent = '#' + doc.id.slice(-6).toUpperCase();
-    document.getElementById('confirmWaBtn').href = waUrl;
     document.getElementById('confirmScreen').classList.add('show');
   }).catch(err=>{
     console.error('No se pudo guardar el pedido:', err);
