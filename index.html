@@ -349,6 +349,16 @@
       <input type="text" id="cambioMonto" placeholder="¿De cuánto billete pagas? Ej. $500" style="display:none;margin-top:10px;">
     </div>
 
+    <div class="campo" id="transferenciaSection" style="display:none;">
+      <div class="happycard-box" style="background:#eef2ff;border-color:#c7d2fe;color:#1e2a5e;">
+        💳 Datos para tu transferencia:<br>
+        Beneficiario: <strong>Happy Burger</strong><br>
+        Banco: <strong>STP</strong><br>
+        CLABE: <strong id="clabeTexto">646990404076293597</strong>
+        <button type="button" class="admin-btn" id="copiarClabeBtn" style="margin-top:8px;padding:9px;font-size:12.5px;">📋 Copiar CLABE</button>
+      </div>
+    </div>
+
     <div class="campo">
       <label>Notas (sin cebolla, término de la carne, etc.)</label>
       <textarea id="notas" placeholder="Escribe aquí cualquier detalle extra"></textarea>
@@ -1139,7 +1149,18 @@ document.querySelectorAll('input[name="entrega"]').forEach(radio=>{
 document.querySelectorAll('input[name="pago"]').forEach(radio=>{
   radio.addEventListener('change', (e)=>{
     document.getElementById('cambioSection').style.display = e.target.value === 'Efectivo' ? 'block' : 'none';
+    document.getElementById('transferenciaSection').style.display = e.target.value === 'Transferencia' ? 'block' : 'none';
   });
+});
+
+document.getElementById('copiarClabeBtn').addEventListener('click', (e)=>{
+  const clabe = document.getElementById('clabeTexto').textContent;
+  navigator.clipboard.writeText(clabe).then(()=>{
+    const btn = e.target;
+    const original = btn.textContent;
+    btn.textContent = '✅ ¡Copiada!';
+    setTimeout(()=> btn.textContent = original, 2000);
+  }).catch(()=> alert('No se pudo copiar automático, copia la CLABE a mano: ' + clabe));
 });
 
 document.querySelectorAll('input[name="cambio"]').forEach(radio=>{
