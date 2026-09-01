@@ -22,30 +22,34 @@
   .login-box button{width:100%;background:var(--rojo);color:#fff;border:none;border-radius:8px;padding:12px;font-weight:800;cursor:pointer;}
   .login-msg{color:var(--rojo-2);font-size:13px;font-weight:700;min-height:18px;}
 
-  .board{display:flex;gap:14px;padding:16px;overflow-x:auto;align-items:flex-start;}
-  .col{background:rgba(0,0,0,0.03);border-radius:12px;padding:10px;min-width:280px;flex:1;max-width:340px;}
-  .col h3{font-size:14px;margin:4px 6px 10px;display:flex;justify-content:space-between;}
-  .col h3 .count{background:var(--rojo);color:#fff;border-radius:999px;padding:1px 9px;font-size:12px;}
+  .board{display:flex;gap:18px;padding:18px;overflow-x:auto;align-items:flex-start;}
+  .col{background:rgba(0,0,0,0.03);border-radius:12px;padding:12px;min-width:340px;flex:1;max-width:420px;}
+  .col h3{font-size:16px;margin:4px 6px 14px;display:flex;justify-content:space-between;}
+  .col h3 .count{background:var(--rojo);color:#fff;border-radius:999px;padding:2px 11px;font-size:13px;}
 
-  .card{background:#fff;border-radius:10px;padding:12px;margin-bottom:10px;border-left:5px solid var(--rojo);box-shadow:0 1px 4px rgba(0,0,0,0.08);}
+  .card{background:#fff;border-radius:12px;padding:18px;margin-bottom:16px;border-left:6px solid var(--rojo);box-shadow:0 2px 8px rgba(0,0,0,0.1);}
   .card.preparando{border-left-color:var(--amarillo);}
   .card.listo{border-left-color:var(--verde);}
   .card.entregado{border-left-color:#999;opacity:0.6;}
-  .card .top{display:flex;justify-content:space-between;font-weight:800;font-size:14px;}
-  .card .hora{font-size:11px;color:#8a7f6c;font-weight:600;}
-  .card .linea{font-size:12.5px;margin-top:6px;line-height:1.5;}
-  .card .items{font-size:12.5px;margin:6px 0;padding-left:14px;}
-  .card .total{font-weight:800;color:var(--rojo-2);margin-top:4px;}
-  .card .btns{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .card .top{display:flex;justify-content:space-between;font-weight:800;font-size:17px;}
+  .card .hora{font-size:12.5px;color:#8a7f6c;font-weight:600;}
+  .card .linea{font-size:14.5px;margin-top:8px;line-height:1.6;}
+  .card .items{font-size:14.5px;margin:8px 0;padding-left:18px;}
+  .card .items li{margin-bottom:2px;}
+  .card .total{font-weight:800;color:var(--rojo-2);margin-top:6px;font-size:16px;}
+  .card .btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
   .card .btns button, .card .btns a{
-    flex:1;text-align:center;border:none;border-radius:6px;padding:8px 6px;font-size:11.5px;font-weight:700;
-    cursor:pointer;text-decoration:none;white-space:nowrap;
+    flex:1;text-align:center;border:none;border-radius:8px;padding:11px 8px;font-size:13px;font-weight:700;
+    cursor:pointer;text-decoration:none;white-space:nowrap;min-width:100px;
   }
   .btn-avanzar{background:var(--azul);color:#fff;}
   .btn-wa{background:#25D366;color:#fff;}
   .btn-mapa{background:var(--amarillo);color:var(--carbon);}
   .empty{color:#8a7f6c;font-size:12.5px;padding:10px;text-align:center;}
+  .ventas-box{display:flex;gap:8px;flex-wrap:wrap;}
   .ventas{background:var(--verde);color:#fff;border-radius:6px;padding:8px 14px;font-weight:800;font-size:13px;}
+  .ventas.pedidos{background:#1565c0;}
+  .ventas.envios{background:var(--amarillo);color:var(--carbon);}
   .timer{font-size:11px;font-weight:800;background:#eee;border-radius:6px;padding:2px 7px;margin-left:6px;}
   .timer.aviso{background:#fff3cd;color:#8a6d00;}
   .timer.urgente{background:#fdecea;color:var(--rojo-2);}
@@ -85,7 +89,11 @@
 <div id="panel" style="display:none;">
   <header>
     <h1>🍔 Happy Burger — Pedidos en vivo <span id="estadoConexion" style="font-size:11px;font-weight:400;">🟡 conectando...</span></h1>
-    <span class="ventas" id="ventasHoy">💵 Ventas de hoy: $0</span>
+    <div class="ventas-box">
+      <span class="ventas" id="ventasTotal">💵 Ganancia total: $0</span>
+      <span class="ventas pedidos" id="ventasPedidos">🍔 Pedidos: $0</span>
+      <span class="ventas envios" id="ventasEnvios">🛵 Envíos: $0</span>
+    </div>
     <button id="logoutBtn">Cerrar sesión</button>
   </header>
   <div class="board">
@@ -317,19 +325,27 @@ function renderTablero(pedidos){
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const cols = { nuevo:[], preparando:[], listo:[], entregado:[] };
   pedidosCache = {};
-  let ventasHoy = 0;
+  let ganEnvios = 0, ganPedidos = 0;
   pedidos.forEach(p=>{
     pedidosCache[p.id] = p;
     const estado = p.estado || 'nuevo';
     const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : null;
-    if(fecha && fecha >= hoy) ventasHoy += Number(p.total) || 0;
+    if(fecha && fecha >= hoy){
+      const envio = Number(p.envioFee) || 0;
+      const subtotal = Number(p.subtotal) || 0;
+      const descuento = Number(p.descuento) || 0;
+      ganEnvios += envio;
+      ganPedidos += Math.max(0, subtotal - descuento);
+    }
     if(estado === 'entregado'){
       if(fecha && fecha >= hoy) cols.entregado.push(p);
     } else if(cols[estado]){
       cols[estado].push(p);
     }
   });
-  document.getElementById('ventasHoy').textContent = `💵 Ventas de hoy: $${ventasHoy}`;
+  document.getElementById('ventasTotal').textContent = `💵 Ganancia total: $${ganPedidos + ganEnvios}`;
+  document.getElementById('ventasPedidos').textContent = `🍔 Pedidos: $${ganPedidos}`;
+  document.getElementById('ventasEnvios').textContent = `🛵 Envíos: $${ganEnvios}`;
   for(const key in cols){
     const contenedor = document.getElementById('col'+key.charAt(0).toUpperCase()+key.slice(1));
     contenedor.innerHTML = '';

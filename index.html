@@ -305,7 +305,7 @@
       <div id="happyCardInfo" class="happycard-box" style="display:none;"></div>
     </div>
 
-    <div class="campo">
+    <div class="campo" id="entregaModoCampo">
       <label>¿Cómo lo quieres?</label>
       <div class="radios">
         <label><input type="radio" name="entrega" value="Recoger en el local" checked> Recoger</label>
@@ -313,6 +313,8 @@
       </div>
       <div class="aviso-inline" id="avisoSinEnvio"></div>
     </div>
+
+    <div class="campo" id="direccionGuardadaBox" style="display:none;"></div>
 
     <div class="campo" id="mapSection">
       <label>📍 Te vamos a pedir tu ubicación automáticamente — solo dale "Permitir" en el aviso que salga. Si no cae exacto, toca el mapa para corregir (quedará marcado con una ✕).</label>
@@ -325,8 +327,8 @@
     </div>
 
     <div class="campo" id="refSection" style="display:none;">
-      <label>Dirección y referencia de tu casa (obligatorio) — calle, número, colonia, color de casa, seña...</label>
-      <input type="text" id="referencia" placeholder="Ej. Calle 20 #145, Fracc. Las Américas, casa color verde, portón negro">
+      <label>Referencia de tu casa (color, portón, seña...)</label>
+      <input type="text" id="referencia" placeholder="Ej. casa color verde, portón negro, hay un carro rojo afuera">
     </div>
 
     <div class="campo">
@@ -368,6 +370,8 @@
     <p>Ya lo tenemos en cocina, en breve empezamos a prepararlo.</p>
     <p>Folio: <span class="folio" id="confirmFolio"></span></p>
     <p id="confirmHappyCard"></p>
+    <p style="margin-top:18px;font-size:13px;">¿Tienes dudas? Envíanos un mensaje</p>
+    <a href="#" target="_blank" class="wa-btn" id="confirmDudasBtn">💬 Escribir a Happy Burger</a>
     <button class="new-order-btn" id="confirmNuevoBtn">Hacer otro pedido</button>
   </div>
 </div>
@@ -438,6 +442,11 @@
       <label>Mensaje del aviso de sin envío</label>
       <textarea id="cfgMensajeSinEnvio" placeholder="Ej. Hoy solo pickup en el local, no hay envío a domicilio."></textarea>
 
+      <div class="admin-toggle">
+        <span>🏠 Permitir "Recoger en el local"</span>
+        <input type="checkbox" id="cfgPermitirRecoger">
+      </div>
+
       <button class="admin-btn" id="adminGuardarBtn">Guardar cambios</button>
       <button class="admin-btn secondary" id="adminLogoutBtn">Cerrar sesión</button>
       <div class="admin-msg ok" id="adminGuardarMsg"></div>
@@ -461,7 +470,7 @@ const settingsRef = db.collection('settings').doc('config');
 const pedidosRef = db.collection('pedidos');
 const clientesRef = db.collection('clientes');
 const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
-let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'' };
+let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false };
 let happyCardSaldo = 0;
 let happyCardDescuentoAplicado = 0;
 
@@ -795,18 +804,50 @@ function pintarHappyCardBox(){
   });
 }
 
+function pintarDireccionGuardada(direccion){
+  const box = document.getElementById('direccionGuardadaBox');
+  if(!direccion || !direccion.referencia){
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="happycard-box" style="background:#e8f0fe;border-color:#a8c7fa;color:#1a3d7c;">
+      🏠 Tenemos guardada tu dirección: <strong>${direccion.referencia}</strong>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button type="button" class="admin-btn" id="direccionSiBtn" style="margin:0;padding:8px;font-size:12.5px;">✅ Sí, es correcta</button>
+        <button type="button" class="admin-btn secondary" id="direccionNoBtn" style="margin:0;padding:8px;font-size:12.5px;">✏️ Cambió</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('direccionSiBtn').addEventListener('click', ()=>{
+    document.getElementById('referencia').value = direccion.referencia;
+    if(direccion.lat && direccion.lng){
+      activarModoEnvio();
+      setTimeout(()=> setPin(direccion.lat, direccion.lng), 600);
+    }
+    box.style.display = 'none';
+  });
+  document.getElementById('direccionNoBtn').addEventListener('click', ()=>{
+    box.style.display = 'none';
+  });
+}
+
 let telefonoTimer = null;
 document.getElementById('telefono').addEventListener('input', (e)=>{
   const tel = e.target.value.replace(/\D/g,'');
   happyCardSaldo = 0;
   happyCardDescuentoAplicado = 0;
   document.getElementById('happyCardInfo').style.display = 'none';
+  document.getElementById('direccionGuardadaBox').style.display = 'none';
   clearTimeout(telefonoTimer);
   if(tel.length !== 10) return;
   telefonoTimer = setTimeout(()=>{
     clientesRef.doc(tel).get().then(doc=>{
-      happyCardSaldo = doc.exists ? Math.floor(doc.data().saldo || 0) : 0;
+      const datos = doc.exists ? doc.data() : {};
+      happyCardSaldo = Math.floor(datos.saldo || 0);
       pintarHappyCardBox();
+      pintarDireccionGuardada(datos.ultimaDireccion);
     }).catch(()=>{});
   }, 500);
 });
@@ -1072,18 +1113,25 @@ function solicitarUbicacion(){
 
 document.getElementById('geoBtn').addEventListener('click', solicitarUbicacion);
 
+function activarModoEnvio(){
+  document.getElementById('mapSection').style.display = 'block';
+  document.getElementById('refSection').style.display = 'block';
+  initMap();
+  requestAnimationFrame(()=> map.invalidateSize());
+  setTimeout(()=> map.invalidateSize(), 300);
+  if(pin.lat === null){
+    setTimeout(()=> solicitarUbicacion(), 400); // automático, sin que tengan que tocar el botón
+  }
+}
+
 document.querySelectorAll('input[name="entrega"]').forEach(radio=>{
   radio.addEventListener('change', (e)=>{
     const isEnvio = e.target.value === 'Envío a domicilio';
-    document.getElementById('mapSection').style.display = isEnvio ? 'block' : 'none';
-    document.getElementById('refSection').style.display = isEnvio ? 'block' : 'none';
     if(isEnvio){
-      initMap();
-      requestAnimationFrame(()=> map.invalidateSize());
-      setTimeout(()=> map.invalidateSize(), 300);
-      if(pin.lat === null){
-        setTimeout(()=> solicitarUbicacion(), 400); // automático, sin que tengan que tocar el botón
-      }
+      activarModoEnvio();
+    } else {
+      document.getElementById('mapSection').style.display = 'none';
+      document.getElementById('refSection').style.display = 'none';
     }
   });
 });
@@ -1126,9 +1174,9 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
     const referenciaInput = document.getElementById('referencia');
     if(!referenciaInput.value.trim()){
       if(pin.lat === null){
-        alert('Toca el mapa para marcar dónde vives, o escribe tu dirección completa (calle, número, colonia) para poder enviar el pedido.');
+        alert('Toca el mapa para marcar dónde vives, o al menos escribe una referencia de tu casa para poder enviar el pedido.');
       } else {
-        alert('Escribe tu dirección y una referencia de tu casa para poder enviar el pedido.');
+        alert('Escribe una referencia de tu casa (color, portón, seña) para poder enviar el pedido.');
       }
       referenciaInput.focus();
       return;
@@ -1148,16 +1196,27 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
   })).then(doc=>{
     if(orderData.telefono.length === 10){
       const ganado = Math.round(orderData.total * HAPPYCARD_PCT);
-      clientesRef.doc(orderData.telefono).set({
+      const datosCliente = {
         saldo: firebase.firestore.FieldValue.increment(ganado - orderData.descuento),
         ultimoPedido: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).catch(()=>{});
+      };
+      if(orderData.entrega === 'Envío a domicilio' && orderData.referencia){
+        datosCliente.ultimaDireccion = {
+          lat: orderData.ubicacion ? orderData.ubicacion.lat : null,
+          lng: orderData.ubicacion ? orderData.ubicacion.lng : null,
+          referencia: orderData.referencia
+        };
+      }
+      clientesRef.doc(orderData.telefono).set(datosCliente, { merge: true }).catch(()=>{});
       document.getElementById('confirmHappyCard').textContent =
         ganado > 0 ? `🎉 Ganaste $${ganado} en tu HappyCard.` : '';
     } else {
       document.getElementById('confirmHappyCard').textContent = '';
     }
-    document.getElementById('confirmFolio').textContent = '#' + doc.id.slice(-6).toUpperCase();
+    const folio = doc.id.slice(-6).toUpperCase();
+    document.getElementById('confirmFolio').textContent = '#' + folio;
+    document.getElementById('confirmDudasBtn').href = 'https://wa.me/529618025610?text=' +
+      encodeURIComponent(`Hola, tengo una duda sobre mi pedido #${folio}`);
     document.getElementById('confirmScreen').classList.add('show');
   }).catch(err=>{
     console.error('No se pudo guardar el pedido:', err);
@@ -1184,7 +1243,8 @@ function applySettings(s){
     promoDesc: s.promoDesc || 'Precio especial solo por hoy. Pregunta por los detalles al hacer tu pedido.',
     promoImagenId: s.promoImagenId || '',
     sinEnvioHoy: !!s.sinEnvioHoy,
-    mensajeSinEnvio: s.mensajeSinEnvio || 'Hoy no tenemos servicio a domicilio, solo puedes recoger en el local.'
+    mensajeSinEnvio: s.mensajeSinEnvio || 'Hoy no tenemos servicio a domicilio, solo puedes recoger en el local.',
+    permitirRecoger: !!s.permitirRecoger
   };
 
   const banner = document.getElementById('bannerCerrado');
@@ -1210,6 +1270,18 @@ function applySettings(s){
     }
   } else {
     avisoSinEnvio.style.display = 'none';
+  }
+
+  const entregaModoCampo = document.getElementById('entregaModoCampo');
+  if(cfg.permitirRecoger){
+    entregaModoCampo.style.display = 'block';
+  } else {
+    entregaModoCampo.style.display = 'none';
+    const envioRadio = document.querySelector('input[name="entrega"][value="Envío a domicilio"]');
+    if(!envioRadio.checked){
+      envioRadio.checked = true;
+      activarModoEnvio();
+    }
   }
 
   const promoChanged = cfg.promoActiva ? insertarPromo(cfg) : quitarPromo();
@@ -1266,6 +1338,7 @@ auth.onAuthStateChanged(user=>{
     document.getElementById('cfgPromoDesc').value = cfg.promoDesc;
     document.getElementById('cfgPromoImagen').value = cfg.promoImagenId;
     document.getElementById('cfgSinEnvio').checked = cfg.sinEnvioHoy;
+    document.getElementById('cfgPermitirRecoger').checked = cfg.permitirRecoger;
     document.getElementById('cfgMensajeSinEnvio').value = cfg.mensajeSinEnvio;
   } else if(user){
     // sesión de otra cuenta que no es la admin
@@ -1283,6 +1356,7 @@ document.getElementById('adminGuardarBtn').addEventListener('click', ()=>{
     promoDesc: document.getElementById('cfgPromoDesc').value.trim(),
     promoImagenId: document.getElementById('cfgPromoImagen').value,
     sinEnvioHoy: document.getElementById('cfgSinEnvio').checked,
+    permitirRecoger: document.getElementById('cfgPermitirRecoger').checked,
     mensajeSinEnvio: document.getElementById('cfgMensajeSinEnvio').value.trim()
   };
   const msg = document.getElementById('adminGuardarMsg');
