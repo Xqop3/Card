@@ -1083,7 +1083,7 @@ function calcDeliveryFee(distKm){
   if(distKm > MAX_DELIVERY_KM) return null; // fuera de rango, se confirma a mano
   if(distKm <= FREE_ZONE_KM) return 0;
   const extra = Math.max(0, distKm - 1);
-  const fee = 10 + extra * 6;
+  const fee = 15 + extra * 5;
   return Math.round(fee / 5) * 5;
 }
 
