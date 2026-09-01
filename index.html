@@ -323,7 +323,7 @@
         <button type="button" class="map-btn" id="geoBtn">📍 Usar mi ubicación actual</button>
       </div>
       <div class="zone-status" id="zoneStatus"></div>
-      <div class="map-hint">El círculo amarillo marca hasta dónde llegamos (3 km).</div>
+      <div class="map-hint">El círculo amarillo marca nuestra zona habitual — más lejos también podemos llegar, el envío se calcula por la ruta real.</div>
     </div>
 
     <div class="campo" id="refSection" style="display:none;">
@@ -897,9 +897,8 @@ function buildOrderData(){
   let envioFee = 0;
   let ubicacion = null;
   if(entrega === 'Envío a domicilio' && pin.lat !== null){
-    const dist = estimatedRouteKm(CENTER_LAT, CENTER_LNG, pin.lat, pin.lng);
-    envioFee = dist <= RADIUS_KM ? calcDeliveryFee(dist) : 0;
-    ubicacion = { lat: pin.lat, lng: pin.lng, distanciaKm: Number(dist.toFixed(2)) };
+    envioFee = pin.fee || 0;
+    ubicacion = { lat: pin.lat, lng: pin.lng, distanciaKm: pin.distKm !== null ? Number(pin.distKm.toFixed(2)) : null };
   }
 
   const descuento = Math.min(happyCardDescuentoAplicado, subtotal + envioFee);
@@ -955,14 +954,14 @@ function buildMessage(){
   let envioLines = [];
 
   if(entrega === 'Envío a domicilio'){
-    if(pin.lat !== null){
-      const dist = estimatedRouteKm(CENTER_LAT, CENTER_LNG, pin.lat, pin.lng);
-      if(dist <= RADIUS_KM){
-        envioFee = calcDeliveryFee(dist);
-        envioLines.push(`📏 *Distancia estimada:* ${dist.toFixed(1)} km`);
+    if(pin.lat !== null && pin.distKm !== null){
+      const dist = pin.distKm;
+      if(pin.fee !== null){
+        envioFee = pin.fee;
+        envioLines.push(`📏 *Distancia por calle:* ${dist.toFixed(1)} km`);
         envioLines.push(`🛵 *Costo de envío:* ${envioFee === 0 ? 'Sin costo (cortesía) 🎉' : '$'+envioFee}`);
       } else {
-        envioLines.push(`📏 *Distancia estimada:* ${dist.toFixed(1)} km — fuera del rango de ${RADIUS_KM} km, favor de confirmar costo`);
+        envioLines.push(`📏 *Distancia por calle:* ${dist.toFixed(1)} km — fuera del rango de ${MAX_DELIVERY_KM} km, favor de confirmar costo`);
       }
       envioLines.push(`📍 *Ubicación:* https://www.google.com/maps?q=${pin.lat},${pin.lng}`);
     } else {
@@ -1012,11 +1011,12 @@ function buildMessage(){
 // ---- Mapa de zona de envío ----
 const CENTER_LAT = 20.9311918;   // ajusta aquí si tu punto de referencia cambia
 const CENTER_LNG = -89.5921314;
-const RADIUS_KM = 3;
-const ROUTE_FACTOR = 1.3; // corrige línea recta a un estimado de distancia real por calle (ajústalo con datos reales)
+const RADIUS_KM = 3;          // solo referencia visual del círculo en el mapa
+const MAX_DELIVERY_KM = 12;   // más allá de esto, no se cobra automático — se confirma a mano
+const FREE_ZONE_KM = 0.2;     // a pocos metros del local, envío gratis (cortesía)
 
 let map, customerMarker, leafletReady = false;
-let pin = {lat:null, lng:null};
+let pin = {lat:null, lng:null, distKm:null, fee:null, calculando:false, ruta:'osrm'};
 
 function haversineKm(lat1,lng1,lat2,lng2){
   const R = 6371;
@@ -1026,9 +1026,23 @@ function haversineKm(lat1,lng1,lat2,lng2){
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// Distancia estimada "por calle" — lo que realmente usamos para tarifa y para mostrarle al cliente
-function estimatedRouteKm(lat1,lng1,lat2,lng2){
-  return haversineKm(lat1,lng1,lat2,lng2) * ROUTE_FACTOR;
+// Distancia real por calle usando OSRM (ruteo público y gratuito, sin llave).
+// Si falla (sin internet, servidor caído, etc.) usamos una estimación de respaldo.
+async function distanciaPorCalle(lat1,lng1,lat2,lng2){
+  try{
+    const url = `https://router.project-osrm.org/route/v1/driving/${lng1},${lat1};${lng2},${lat2}?overview=false`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(()=> controller.abort(), 6000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    const data = await res.json();
+    if(data.code === 'Ok' && data.routes && data.routes[0]){
+      return { km: data.routes[0].distance / 1000, exacta: true };
+    }
+    throw new Error('OSRM sin ruta');
+  }catch(e){
+    return { km: haversineKm(lat1,lng1,lat2,lng2) * 1.3, exacta: false };
+  }
 }
 
 function initMap(){
@@ -1040,7 +1054,7 @@ function initMap(){
   }).addTo(map);
 
   L.circle([CENTER_LAT, CENTER_LNG], {
-    radius: (RADIUS_KM/ROUTE_FACTOR)*1000, color:'#e2231a', weight:2, fillColor:'#ffc300', fillOpacity:0.18
+    radius: RADIUS_KM*1000, color:'#e2231a', weight:2, fillColor:'#ffc300', fillOpacity:0.18
   }).addTo(map);
 
   const businessIcon = L.divIcon({className:'', html:'<div style="font-size:30px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,0.4));">🍔</div>', iconSize:[30,30], iconAnchor:[15,26]});
@@ -1062,35 +1076,48 @@ function setPin(lat, lng){
     });
   }
   map.panTo([lat,lng]);
-  updateZoneStatus();
+  actualizarDistanciaYtarifa();
 }
-
-const FREE_ZONE_KM = 0.2; // a pocos metros del local, envío gratis (cortesía)
 
 function calcDeliveryFee(distKm){
-  if(distKm > RADIUS_KM) return null;
+  if(distKm > MAX_DELIVERY_KM) return null; // fuera de rango, se confirma a mano
   if(distKm <= FREE_ZONE_KM) return 0;
-  if(distKm <= 0.5) return 10;
-  if(distKm <= 2.0) return 15;
-  if(distKm <= 2.5) return 20;
-  return 30;
+  const extra = Math.max(0, distKm - 1);
+  const fee = 10 + extra * 6;
+  return Math.round(fee / 5) * 5;
 }
 
-function updateZoneStatus(){
+let solicitudDistanciaId = 0;
+async function actualizarDistanciaYtarifa(){
   const box = document.getElementById('zoneStatus');
   if(pin.lat === null){ box.className='zone-status'; box.textContent=''; return; }
-  const dist = estimatedRouteKm(CENTER_LAT, CENTER_LNG, pin.lat, pin.lng);
-  if(dist <= RADIUS_KM){
-    const fee = calcDeliveryFee(dist);
+  const miSolicitudId = ++solicitudDistanciaId;
+  pin.calculando = true;
+  box.className = 'zone-status dentro';
+  box.textContent = '📡 Calculando distancia por calle...';
+
+  const { km, exacta } = await distanciaPorCalle(CENTER_LAT, CENTER_LNG, pin.lat, pin.lng);
+  // Si el pin ya cambió mientras esperábamos la respuesta, esta ya no es la solicitud más reciente: se descarta.
+  if(miSolicitudId !== solicitudDistanciaId) return;
+  pin.distKm = km;
+  pin.ruta = exacta ? 'osrm' : 'estimado';
+  pin.calculando = false;
+
+  const fee = calcDeliveryFee(km);
+  pin.fee = fee;
+  const notaEstimado = exacta ? '' : ' (estimado)';
+
+  if(fee !== null){
     box.className = 'zone-status dentro';
     box.textContent = fee === 0
-      ? `✅ Muy cerca (~${dist.toFixed(1)} km) — envío sin costo 🎉`
-      : `✅ Dentro de zona (~${dist.toFixed(1)} km por calle) — envío: $${fee}`;
+      ? `✅ Muy cerca (~${km.toFixed(1)} km${notaEstimado}) — envío sin costo 🎉`
+      : `✅ Distancia: ~${km.toFixed(1)} km${notaEstimado} por calle — envío: $${fee}`;
   } else {
     box.className = 'zone-status fuera';
-    box.textContent = `⚠️ Fuera del rango de ${RADIUS_KM} km (~${dist.toFixed(1)} km) — confírmanos si aún así llegamos`;
+    box.textContent = `⚠️ Está algo lejos (~${km.toFixed(1)} km${notaEstimado}) — te confirmamos el costo de envío por WhatsApp`;
   }
 }
+function updateZoneStatus(){ actualizarDistanciaYtarifa(); }
 
 function solicitarUbicacion(){
   if(!navigator.geolocation){ alert('Tu navegador no permite compartir ubicación automáticamente. Toca el mapa para marcar tu punto.'); return; }
@@ -1200,6 +1227,10 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
         alert('Escribe una referencia de tu casa (color, portón, seña) para poder enviar el pedido.');
       }
       referenciaInput.focus();
+      return;
+    }
+    if(pin.calculando){
+      alert('Espera un segundo, estamos calculando la distancia de tu envío...');
       return;
     }
   }
