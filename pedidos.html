@@ -312,6 +312,7 @@ function tarjeta(p){
     <div class="top"><span>${p.nombre || 'Sin nombre'} · #${p.id.slice(-6).toUpperCase()}</span><span class="hora">${formatoHora(p.createdAt)}<span class="timer" data-created="${creadoMs}"></span></span></div>
     <div class="linea">🛵 ${p.entrega}${p.telefono ? ' · 📱 '+p.telefono : ''}</div>
     <ul class="items">${itemsHtml}</ul>
+    ${p.envioFee > 0 ? `<div class="linea">🛵 Envío: $${p.envioFee}</div>` : (p.entrega === 'Envío a domicilio' ? `<div class="linea">🛵 Envío: sin costo 🎉</div>` : '')}
     <div class="linea total">Total: $${p.total}${p.descuento ? ` (con $${p.descuento} de HappyCard)` : ''}</div>
     <div class="linea">💰 ${p.pago}${p.cambioTxt ? ' — '+p.cambioTxt : ''}</div>
     ${p.referencia ? `<div class="linea">🏠 ${p.referencia}</div>` : ''}
@@ -493,8 +494,11 @@ document.getElementById('optimizarRutaBtn').addEventListener('click', async ()=>
   }
   if(paradas.length === 1){
     const p = paradas[0];
+    const mapsUrlSolo = `https://www.google.com/maps/dir/?api=1&origin=${CENTER_LAT},${CENTER_LNG}&destination=${p.ubicacion.lat},${p.ubicacion.lng}&travelmode=driving`;
+    const textoWa = `🛵 Ruta de entrega:\n1. ${p.nombre}${p.referencia ? ' — ' + p.referencia : ''}\n\n${mapsUrlSolo}`;
     box.innerHTML = `<div class="ruta-box">Solo hay un pedido listo: <strong>${p.nombre}</strong>.<br>
-      <a class="abrir-maps" href="https://www.google.com/maps/dir/?api=1&origin=${CENTER_LAT},${CENTER_LNG}&destination=${p.ubicacion.lat},${p.ubicacion.lng}&travelmode=driving" target="_blank">🗺️ Abrir ruta en Google Maps</a></div>`;
+      <a class="abrir-maps" href="${mapsUrlSolo}" target="_blank">🗺️ Abrir ruta en Google Maps</a>
+      <a class="abrir-maps btn-wa" style="background:#25D366;margin-top:8px;" href="https://wa.me/?text=${encodeURIComponent(textoWa)}" target="_blank">📤 Compartir por WhatsApp</a></div>`;
     return;
   }
 
@@ -513,15 +517,20 @@ document.getElementById('optimizarRutaBtn').addEventListener('click', async ()=>
     const listaHtml = paradasOrdenadas.map((p,i)=>
       `<li><strong>${p.nombre}</strong>${p.referencia ? ' — ' + p.referencia : ''} (#${p.id.slice(-6).toUpperCase()})</li>`
     ).join('');
+    const listaTexto = paradasOrdenadas.map((p,i)=>
+      `${i+1}. ${p.nombre}${p.referencia ? ' — ' + p.referencia : ''} (#${p.id.slice(-6).toUpperCase()})`
+    ).join('\n');
 
     const destino = paradasOrdenadas[paradasOrdenadas.length - 1];
     const intermedias = paradasOrdenadas.slice(0, -1).map(p => `${p.ubicacion.lat},${p.ubicacion.lng}`).join('|');
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${CENTER_LAT},${CENTER_LNG}` +
       `&destination=${destino.ubicacion.lat},${destino.ubicacion.lng}` +
       (intermedias ? `&waypoints=${intermedias}` : '') + `&travelmode=driving`;
+    const textoWa = `🛵 Ruta de entrega:\n${listaTexto}\n\n${mapsUrl}`;
 
     box.innerHTML = `<div class="ruta-box">📍 Orden sugerido de entrega:<ol>${listaHtml}</ol>
-      <a class="abrir-maps" href="${mapsUrl}" target="_blank">🗺️ Abrir ruta en Google Maps</a></div>`;
+      <a class="abrir-maps" href="${mapsUrl}" target="_blank">🗺️ Abrir ruta en Google Maps</a>
+      <a class="abrir-maps btn-wa" style="background:#25D366;margin-top:8px;" href="https://wa.me/?text=${encodeURIComponent(textoWa)}" target="_blank">📤 Compartir por WhatsApp</a></div>`;
   }catch(e){
     box.innerHTML = '<div class="ruta-box">⚠️ No se pudo calcular la ruta (sin internet o el servicio no respondió). Intenta de nuevo.</div>';
   }

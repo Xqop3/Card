@@ -380,6 +380,12 @@
     <p>Ya lo tenemos en cocina, en breve empezamos a prepararlo.</p>
     <p>Folio: <span class="folio" id="confirmFolio"></span></p>
     <p id="confirmHappyCard"></p>
+    <div id="confirmComprobante" style="display:none;">
+      <div class="happycard-box" style="background:#eef2ff;border-color:#c7d2fe;color:#1e2a5e;">
+        📸 Comparte tu comprobante de transferencia aquí para confirmar tu pago
+      </div>
+      <a href="#" target="_blank" class="wa-btn" id="confirmComprobanteBtn" style="margin-top:8px;">📸 Enviar comprobante</a>
+    </div>
     <p style="margin-top:18px;font-size:13px;">¿Tienes dudas? Envíanos un mensaje</p>
     <a href="#" target="_blank" class="wa-btn" id="confirmDudasBtn">💬 Escribir a Happy Burger</a>
     <button class="new-order-btn" id="confirmNuevoBtn">Hacer otro pedido</button>
@@ -1269,6 +1275,11 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
     document.getElementById('confirmFolio').textContent = '#' + folio;
     document.getElementById('confirmDudasBtn').href = 'https://wa.me/529618025610?text=' +
       encodeURIComponent(`Hola, tengo una duda sobre mi pedido #${folio}`);
+    if(orderData.pago === 'Transferencia'){
+      document.getElementById('confirmComprobante').style.display = 'block';
+      document.getElementById('confirmComprobanteBtn').href = 'https://wa.me/529618025610?text=' +
+        encodeURIComponent(`Hola, aquí está mi comprobante de transferencia del pedido #${folio}`);
+    }
     document.getElementById('confirmScreen').classList.add('show');
   }).catch(err=>{
     console.error('No se pudo guardar el pedido:', err);
