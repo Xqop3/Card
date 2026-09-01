@@ -368,6 +368,12 @@
         <span>🔥 Promo del día activa</span>
         <input type="checkbox" id="cfgPromo">
       </div>
+      <label>Nombre de la promo</label>
+      <input type="text" id="cfgPromoNombre" placeholder="Ej. 2 Pastas">
+      <label>Precio de la promo ($)</label>
+      <input type="text" id="cfgPromoPrecio" inputmode="numeric" placeholder="Ej. 190">
+      <label>Descripción de la promo</label>
+      <textarea id="cfgPromoDesc" placeholder="Ej. Precio especial solo por hoy (antes $260). Incluye pan de ajo."></textarea>
 
       <div class="admin-toggle">
         <span>🚫 Hoy no hay envío a domicilio</span>
@@ -480,31 +486,28 @@ const menu = {
 };
 
 // Promo del día — se activa/desactiva desde el panel privado (Firebase), no por fecha fija.
-function insertarPromo(){
-  if(menu["🔥 Promo de hoy"]) return false; // ya está insertada
-  const promoSection = {
-    "🔥 Promo de hoy": [
-      {
-        id:'promo-2pastas', name:'2 Pastas', price:190,
-        desc:'Precio especial solo por hoy (antes $260). Incluye pan de ajo. Elige tipo y proteína para cada una de tus 2 pastas.',
-        typeChoice:['Alfredo','Chipotle'],
-        proteinChoice:['Pollo empanizado','Pollo a la plancha','Champiñones','Boneless']
-      }
-    ]
+function insertarPromo(promo){
+  const promoItem = {
+    id:'promo-hoy',
+    name: promo.promoNombre || 'Promo del día',
+    price: Number(promo.promoPrecio) || 0,
+    desc: promo.promoDesc || ''
   };
+  const firma = JSON.stringify(promoItem);
+  const actual = menu["🔥 Promo de hoy"];
+  if(actual && actual[0] && actual[0]._firma === firma) return false; // sin cambios
+  promoItem._firma = firma;
   // Reconstruir menu con la promo primero, conservando el resto del orden
-  const nuevoMenu = Object.assign(promoSection, menu);
+  const nuevoMenu = Object.assign({"🔥 Promo de hoy":[promoItem]}, menu);
   for(const k in menu) delete menu[k];
   Object.assign(menu, nuevoMenu);
-  promoSection["🔥 Promo de hoy"].forEach(item=>{
-    if(!(item.id in state)) state[item.id] = hasVariants(item) ? {qty:0, units:[]} : {qty:0};
-  });
+  if(!(promoItem.id in state)) state[promoItem.id] = {qty:0};
   return true;
 }
 function quitarPromo(){
   if(!menu["🔥 Promo de hoy"]) return false;
   delete menu["🔥 Promo de hoy"];
-  delete state['promo-2pastas'];
+  delete state['promo-hoy'];
   return true;
 }
 function syncCartDisplay(){
@@ -956,6 +959,9 @@ function applySettings(s){
     cerradoHoy: !!s.cerradoHoy,
     mensajeCerrado: s.mensajeCerrado || '😴 Hoy no estamos tomando pedidos. ¡Vuelve pronto!',
     promoActiva: !!s.promoActiva,
+    promoNombre: s.promoNombre || '2 Pastas',
+    promoPrecio: s.promoPrecio || 190,
+    promoDesc: s.promoDesc || 'Precio especial solo por hoy. Pregunta por los detalles al hacer tu pedido.',
     sinEnvioHoy: !!s.sinEnvioHoy,
     mensajeSinEnvio: s.mensajeSinEnvio || 'Hoy no tenemos servicio a domicilio, solo puedes recoger en el local.'
   };
@@ -985,7 +991,7 @@ function applySettings(s){
     avisoSinEnvio.style.display = 'none';
   }
 
-  const promoChanged = cfg.promoActiva ? insertarPromo() : quitarPromo();
+  const promoChanged = cfg.promoActiva ? insertarPromo(cfg) : quitarPromo();
   if(promoChanged){
     render();
     syncCartDisplay();
@@ -1034,6 +1040,9 @@ auth.onAuthStateChanged(user=>{
     document.getElementById('cfgCerrado').checked = cfg.cerradoHoy;
     document.getElementById('cfgMensajeCerrado').value = cfg.mensajeCerrado;
     document.getElementById('cfgPromo').checked = cfg.promoActiva;
+    document.getElementById('cfgPromoNombre').value = cfg.promoNombre;
+    document.getElementById('cfgPromoPrecio').value = cfg.promoPrecio;
+    document.getElementById('cfgPromoDesc').value = cfg.promoDesc;
     document.getElementById('cfgSinEnvio').checked = cfg.sinEnvioHoy;
     document.getElementById('cfgMensajeSinEnvio').value = cfg.mensajeSinEnvio;
   } else if(user){
@@ -1047,6 +1056,9 @@ document.getElementById('adminGuardarBtn').addEventListener('click', ()=>{
     cerradoHoy: document.getElementById('cfgCerrado').checked,
     mensajeCerrado: document.getElementById('cfgMensajeCerrado').value.trim(),
     promoActiva: document.getElementById('cfgPromo').checked,
+    promoNombre: document.getElementById('cfgPromoNombre').value.trim(),
+    promoPrecio: Number(document.getElementById('cfgPromoPrecio').value) || 0,
+    promoDesc: document.getElementById('cfgPromoDesc').value.trim(),
     sinEnvioHoy: document.getElementById('cfgSinEnvio').checked,
     mensajeSinEnvio: document.getElementById('cfgMensajeSinEnvio').value.trim()
   };
