@@ -65,7 +65,11 @@
   }
   header::before{
     content:"";position:absolute;inset:0;
-    background:linear-gradient(180deg, rgba(24,22,20,0.55) 0%, rgba(24,22,20,0.85) 100%);
+    background:linear-gradient(180deg, rgba(24,22,20,0.55) 0%, rgba(24,22,20,0.92) 100%);
+  }
+  header::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:4px;
+    background:var(--amarillo);z-index:2;
   }
   header > *{position:relative;z-index:1;}
   h1{
@@ -128,6 +132,7 @@
   .card-name{font-weight:800;font-size:15.5px;}
   .card-price{font-family:'Lilita One',sans-serif;color:var(--rojo);font-size:16px;white-space:nowrap;}
   .card-desc{font-size:12px;color:#5c5045;margin-top:4px;line-height:1.4;}
+  .card-desc strong{color:var(--rojo-2);}
 
   .card.especial{
     border:2px solid var(--rojo);
@@ -567,9 +572,9 @@ const menu = {
     {id:'honey', name:'Spicy Honey Chicken', price:140, desc:'Miel picante, tocino ahumado, pepinillos.'}
   ],
   "Especiales": [
-    {id:'mexa', name:'Mexa Burger', price:140, desc:'Queso fundido, tocino, guacamole fresco, pico de gallo.'},
-    {id:'beast', name:'Beast Mode Burger', price:169, desc:'Carne apilada con tenders ultra crujientes.'},
-    {id:'tocinuda', name:'La Tocinuda', price:149, desc:'Carne jugosa a la parrilla bajo una capa de tocino ahumado crujiente, con queso derretido a su punto justo.'}
+    {id:'mexa', name:'Mexa Burger', price:140, desc:'Queso fundido, tocino, <strong>guacamole fresco</strong>, pico de gallo.'},
+    {id:'beast', name:'Beast Mode Burger', price:169, desc:'Carne apilada con <strong>tenders ultra crujientes</strong>.'},
+    {id:'tocinuda', name:'La Tocinuda', price:149, desc:'Carne jugosa a la parrilla bajo una <strong>capa de tocino ahumado crujiente</strong>, con queso derretido a su punto justo.'}
   ],
   "Hamburguesas": [
     {id:'clasica', name:'Happy Clásica', price:100, desc:'Queso amarillo, jitomate, lechuga, pan de ajonjolí.'},
