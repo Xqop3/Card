@@ -129,6 +129,22 @@
   .card-price{font-family:'Lilita One',sans-serif;color:var(--rojo);font-size:16px;white-space:nowrap;}
   .card-desc{font-size:12px;color:#5c5045;margin-top:4px;line-height:1.4;}
 
+  .card.especial{
+    border:2px solid var(--rojo);
+    background:linear-gradient(180deg, #fff 0%, #fff8ec 100%);
+    box-shadow:0 4px 14px rgba(226,35,26,0.2);
+    position:relative;
+  }
+  .card.especial::before{
+    content:"🔥 ESPECIAL"; position:absolute; top:-11px; right:14px;
+    background:var(--rojo); color:#fff; font-family:'Lilita One',sans-serif;
+    font-size:10.5px; letter-spacing:0.5px; padding:3px 11px; border-radius:999px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+  }
+  .card.especial .card-thumb{width:64px;height:64px;flex:0 0 64px;}
+  .card.especial .card-name{font-size:17px;}
+  .card.especial .card-price{font-size:19px;}
+
   .card-controls{
     display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px;flex-wrap:wrap;
   }
@@ -732,7 +748,7 @@ function render(){
       const thumbData = itemThumbs[item.id];
       const thumb = thumbData ? `<img class="card-thumb" src="${IMG[thumbData.thumb]}" alt="" onclick="abrirZoom('${thumbData.zoom}')">` : '';
       out += `
-        <div class="card">
+        <div class="card${sec === 'Especiales' ? ' especial' : ''}">
           <div class="card-top">
             <div class="card-name-row">
               ${thumb}
