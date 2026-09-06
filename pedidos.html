@@ -311,7 +311,7 @@ function tarjeta(p){
   const mapaBtn = p.ubicacion ? `<a class="btn-mapa" href="https://www.google.com/maps?q=${p.ubicacion.lat},${p.ubicacion.lng}" target="_blank">📍 Mapa</a>` : '';
   const creadoMs = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().getTime() : 0;
   div.innerHTML = `
-    <div class="top"><span>${p.nombre || 'Sin nombre'} · #${p.id.slice(-6).toUpperCase()}</span><span class="hora">${formatoHora(p.createdAt)}<span class="timer" data-created="${creadoMs}"></span></span></div>
+    <div class="top"><span>${p.nombre || 'Sin nombre'} · #${p.id.slice(-6).toUpperCase()}</span><span class="hora">${formatoHora(p.createdAt)}${(estado === 'nuevo' || estado === 'preparando') ? `<span class="timer" data-created="${creadoMs}"></span>` : ''}</span></div>
     <div class="linea">🛵 ${p.entrega}${p.telefono ? ' · 📱 '+p.telefono : ''}</div>
     <ul class="items">${itemsHtml}</ul>
     ${p.envioFee > 0 ? `<div class="linea">🛵 Envío: $${p.envioFee}</div>` : (p.entrega === 'Envío a domicilio' ? `<div class="linea">🛵 Envío: sin costo 🎉</div>` : '')}
