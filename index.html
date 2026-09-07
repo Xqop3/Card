@@ -511,6 +511,7 @@ const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
 let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false };
 let happyCardSaldo = 0;
 let happyCardDescuentoAplicado = 0;
+let pin = {lat:null, lng:null, distKm:null, fee:null, calculando:false, ruta:'osrm'};
 
 const sauceOptions = ['BBQ','Búfalo','Mango habanero','Blue cheese','Tamarindo'];
 
@@ -814,19 +815,31 @@ function changeQty(id, delta){
 }
 
 function updateCartBar(){
-  let count = 0, total = 0;
+  let count = 0, subtotal = 0;
   for(const id in state){
     if(state[id].qty > 0){
       count += state[id].qty;
-      total += state[id].qty * findItem(id).price;
+      subtotal += state[id].qty * findItem(id).price;
     }
   }
-  const descuento = Math.min(happyCardDescuentoAplicado, total);
-  const totalConDescuento = Math.max(0, total - descuento);
+
+  const entregaEl = document.querySelector('input[name="entrega"]:checked');
+  const esEnvio = entregaEl && entregaEl.value === 'Envío a domicilio';
+  const envioFee = (esEnvio && typeof pin.fee === 'number') ? pin.fee : 0;
+  const totalConEnvio = subtotal + envioFee;
+
+  const descuento = Math.min(happyCardDescuentoAplicado, totalConEnvio);
+  const totalFinal = Math.max(0, totalConEnvio - descuento);
+
   document.getElementById('cartCount').textContent = count + (count===1?' producto':' productos');
-  document.getElementById('cartTotal').textContent = descuento > 0
-    ? `$${totalConDescuento} (-$${descuento} HappyCard)`
-    : '$' + total;
+
+  let textoTotal = `$${totalFinal}`;
+  const detalles = [];
+  if(envioFee > 0) detalles.push(`pedido $${subtotal} + envío $${envioFee}`);
+  if(descuento > 0) detalles.push(`-$${descuento} HappyCard`);
+  if(detalles.length) textoTotal += ` (${detalles.join(', ')})`;
+  document.getElementById('cartTotal').textContent = textoTotal;
+
   document.getElementById('sendBtn').disabled = count === 0 || cfg.cerradoHoy;
   document.getElementById('emptyNote').style.display = count === 0 ? 'block' : 'none';
 }
@@ -1073,7 +1086,6 @@ const MAX_DELIVERY_KM = 12;   // más allá de esto, no se cobra automático —
 const FREE_ZONE_KM = 0.2;     // a pocos metros del local, envío gratis (cortesía)
 
 let map, customerMarker, leafletReady = false;
-let pin = {lat:null, lng:null, distKm:null, fee:null, calculando:false, ruta:'osrm'};
 
 function haversineKm(lat1,lng1,lat2,lng2){
   const R = 6371;
@@ -1173,6 +1185,7 @@ async function actualizarDistanciaYtarifa(){
     box.className = 'zone-status fuera';
     box.textContent = `⚠️ Está algo lejos (~${km.toFixed(1)} km${notaEstimado}) — te confirmamos el costo de envío por WhatsApp`;
   }
+  updateCartBar();
 }
 function updateZoneStatus(){ actualizarDistanciaYtarifa(); }
 
@@ -1227,6 +1240,7 @@ document.querySelectorAll('input[name="entrega"]').forEach(radio=>{
       document.getElementById('mapSection').style.display = 'none';
       document.getElementById('refSection').style.display = 'none';
     }
+    updateCartBar();
   });
 });
 
