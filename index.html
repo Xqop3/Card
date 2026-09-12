@@ -1388,24 +1388,27 @@ function applySettings(s){
 
   const radioEnvio = document.getElementById('radioEnvio');
   const avisoSinEnvio = document.getElementById('avisoSinEnvio');
-  radioEnvio.disabled = cfg.sinEnvioHoy;
-  if(cfg.sinEnvioHoy){
-    avisoSinEnvio.textContent = '🚫 ' + cfg.mensajeSinEnvio;
-    avisoSinEnvio.style.display = 'block';
-    if(radioEnvio.checked){
-      document.querySelector('input[name="entrega"][value="Recoger en el local"]').checked = true;
-      radioEnvio.dispatchEvent(new Event('change'));
-    }
-  } else {
-    avisoSinEnvio.style.display = 'none';
-  }
-
   const entregaModoCampo = document.getElementById('entregaModoCampo');
-  if(cfg.permitirRecoger){
+  const recogerRadio = document.querySelector('input[name="entrega"][value="Recoger en el local"]');
+  const envioRadio = document.querySelector('input[name="entrega"][value="Envío a domicilio"]');
+
+  radioEnvio.disabled = cfg.sinEnvioHoy;
+  avisoSinEnvio.style.display = cfg.sinEnvioHoy ? 'block' : 'none';
+  if(cfg.sinEnvioHoy) avisoSinEnvio.textContent = '🚫 ' + cfg.mensajeSinEnvio;
+
+  if(cfg.sinEnvioHoy){
+    // Sin envío hoy: mostramos el selector aunque "permitir recoger" esté apagado,
+    // para que el cliente vea que solo puede recoger en vez de que no cambie nada visible.
+    entregaModoCampo.style.display = 'block';
+    if(envioRadio.checked){
+      recogerRadio.checked = true;
+      document.getElementById('mapSection').style.display = 'none';
+      document.getElementById('refSection').style.display = 'none';
+    }
+  } else if(cfg.permitirRecoger){
     entregaModoCampo.style.display = 'block';
   } else {
     entregaModoCampo.style.display = 'none';
-    const envioRadio = document.querySelector('input[name="entrega"][value="Envío a domicilio"]');
     if(!envioRadio.checked){
       envioRadio.checked = true;
       activarModoEnvio();
