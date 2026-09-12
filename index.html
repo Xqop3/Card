@@ -304,9 +304,9 @@
 
   <header>
     <h1 id="mainTitle">HAPPY BURGER</h1>
-    <div class="sub">arma tu pedido y lo mandamos directo al WhatsApp</div>
+    <div class="sub">arma tu pedido y gana mientras comes 🍔💰</div>
     <div class="info">
-      <span>🕕 <b>Sáb–Dom</b> 6–11 PM</span>
+      <span id="horarioBadge">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
       <span>🛵 Envío cerca de <b>Mulchechén</b></span>
       <span>📲 <b>961 802 5610</b></span>
     </div>
@@ -1418,7 +1418,56 @@ function applySettings(s){
     syncCartDisplay();
   }
   updateCartBar();
+  actualizarHorarioBadge();
 }
+
+/* ===================== Cronómetro de horario (Sáb–Dom 6–11 PM) ===================== */
+function formatoHoraCorta(fecha){
+  return fecha.toLocaleTimeString('es-MX', {hour:'numeric', minute:'2-digit'});
+}
+
+function formatoDuracion(ms){
+  const minTotal = Math.max(0, Math.round(ms / 60000));
+  const dias = Math.floor(minTotal / 1440);
+  const horas = Math.floor((minTotal % 1440) / 60);
+  const min = minTotal % 60;
+  if(dias > 0) return `${dias}d ${horas}h`;
+  if(horas > 0) return `${horas}h ${min}min`;
+  return `${min}min`;
+}
+
+// Busca el próximo bloque de apertura (sábado o domingo, 6–11 PM), saltando "hoy" si está cerrado a mano.
+function proximaApertura(ahora){
+  for(let i=0; i<8; i++){
+    const apertura = new Date(ahora);
+    apertura.setDate(apertura.getDate() + i);
+    apertura.setHours(18,0,0,0);
+    const esFinde = apertura.getDay() === 6 || apertura.getDay() === 0; // sáb=6, dom=0
+    if(!esFinde) continue;
+    const cierre = new Date(apertura);
+    cierre.setHours(23,0,0,0);
+    if(i === 0 && cfg.cerradoHoy) continue; // hoy no se abre, buscar el siguiente día de finde
+    if(ahora < cierre) return { apertura, cierre, esHoy: i === 0, esManana: i === 1 };
+  }
+  return null;
+}
+
+function actualizarHorarioBadge(){
+  const badge = document.getElementById('horarioBadge');
+  if(!badge) return;
+  const ahora = new Date();
+  const info = proximaApertura(ahora);
+  if(!info){ badge.innerHTML = '🕕 <b>Sáb–Dom</b> 6–11 PM'; return; }
+
+  if(ahora >= info.apertura && ahora < info.cierre && !cfg.cerradoHoy){
+    badge.innerHTML = `🟢 <b>Abierto</b> — cerramos en ${formatoDuracion(info.cierre - ahora)}`;
+  } else {
+    const cuando = info.esHoy ? 'hoy' : info.esManana ? 'mañana' : 'el ' + info.apertura.toLocaleDateString('es-MX', {weekday:'long'});
+    badge.innerHTML = `🔴 <b>Cerrado</b> — abrimos ${cuando} ${formatoHoraCorta(info.apertura)} (en ${formatoDuracion(info.apertura - ahora)})`;
+  }
+}
+actualizarHorarioBadge();
+setInterval(actualizarHorarioBadge, 30000);
 
 settingsRef.onSnapshot(
   doc => applySettings(doc.exists ? doc.data() : {}),
