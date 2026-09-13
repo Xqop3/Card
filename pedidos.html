@@ -106,6 +106,7 @@
       <span class="ventas pedidos" id="ventasPedidos">🍔 Pedidos: $0</span>
       <span class="ventas envios" id="ventasEnvios">🛵 Envíos: $0</span>
     </div>
+    <button id="borrarTodoBtn" style="background:#6c1a1a;">🗑️ Borrar todos</button>
     <button id="logoutBtn">Cerrar sesión</button>
   </header>
   <div class="board">
@@ -344,6 +345,28 @@ function borrarPedido(id, nombre){
   if(!confirm(`¿Borrar el pedido de ${nombre || 'este cliente'}? Esto no se puede deshacer.`)) return;
   db.collection('pedidos').doc(id).delete().catch(err=> alert('No se pudo borrar: ' + err.message));
 }
+
+document.getElementById('borrarTodoBtn').addEventListener('click', ()=>{
+  const ids = Object.keys(pedidosCache);
+  if(ids.length === 0){ alert('No hay pedidos que borrar.'); return; }
+  if(!confirm(`¿Borrar TODOS los pedidos (${ids.length})? Esta acción no se puede deshacer.`)) return;
+  if(!confirm(`Última confirmación: se van a borrar ${ids.length} pedidos para siempre. ¿Seguro?`)) return;
+
+  const btn = document.getElementById('borrarTodoBtn');
+  btn.disabled = true;
+  btn.textContent = 'Borrando...';
+
+  // Firestore solo permite 500 borrados por batch; con 100 pedidos como máximo cargados, uno alcanza.
+  const batch = db.batch();
+  ids.forEach(id => batch.delete(db.collection('pedidos').doc(id)));
+  batch.commit()
+    .then(()=>{ btn.textContent = '🗑️ Borrar todos'; btn.disabled = false; })
+    .catch(err=>{
+      alert('No se pudo borrar todo: ' + err.message);
+      btn.textContent = '🗑️ Borrar todos';
+      btn.disabled = false;
+    });
+});
 
 function renderTablero(pedidos){
   const hoy = new Date(); hoy.setHours(0,0,0,0);
