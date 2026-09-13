@@ -1460,6 +1460,11 @@ function applySettings(s){
   }
   updateCartBar();
   actualizarHorarioBadge();
+
+  // Si el panel de admin ya está abierto cuando llega/cambia la config, la reflejamos ahí también.
+  if(auth.currentUser && auth.currentUser.email === ADMIN_EMAIL){
+    llenarFormularioAdmin();
+  }
 }
 let agotadosAnteriores = '';
 
@@ -1544,22 +1549,26 @@ document.getElementById('adminLoginBtn').addEventListener('click', ()=>{
 
 document.getElementById('adminLogoutBtn').addEventListener('click', ()=> auth.signOut());
 
+function llenarFormularioAdmin(){
+  document.getElementById('cfgCerrado').checked = cfg.cerradoHoy;
+  document.getElementById('cfgMensajeCerrado').value = cfg.mensajeCerrado;
+  document.getElementById('cfgPromo').checked = cfg.promoActiva;
+  document.getElementById('cfgPromoNombre').value = cfg.promoNombre;
+  document.getElementById('cfgPromoPrecio').value = cfg.promoPrecio;
+  document.getElementById('cfgPromoDesc').value = cfg.promoDesc;
+  document.getElementById('cfgPromoImagen').value = cfg.promoImagenId;
+  document.getElementById('cfgSinEnvio').checked = cfg.sinEnvioHoy;
+  document.getElementById('cfgPermitirRecoger').checked = cfg.permitirRecoger;
+  document.getElementById('cfgMensajeSinEnvio').value = cfg.mensajeSinEnvio;
+  poblarListaAgotados();
+}
+
 auth.onAuthStateChanged(user=>{
   const isAdmin = !!user && user.email === ADMIN_EMAIL;
   document.getElementById('adminLogin').style.display = isAdmin ? 'none' : 'block';
   document.getElementById('adminPanel').style.display = isAdmin ? 'block' : 'none';
   if(isAdmin){
-    document.getElementById('cfgCerrado').checked = cfg.cerradoHoy;
-    document.getElementById('cfgMensajeCerrado').value = cfg.mensajeCerrado;
-    document.getElementById('cfgPromo').checked = cfg.promoActiva;
-    document.getElementById('cfgPromoNombre').value = cfg.promoNombre;
-    document.getElementById('cfgPromoPrecio').value = cfg.promoPrecio;
-    document.getElementById('cfgPromoDesc').value = cfg.promoDesc;
-    document.getElementById('cfgPromoImagen').value = cfg.promoImagenId;
-    document.getElementById('cfgSinEnvio').checked = cfg.sinEnvioHoy;
-    document.getElementById('cfgPermitirRecoger').checked = cfg.permitirRecoger;
-    document.getElementById('cfgMensajeSinEnvio').value = cfg.mensajeSinEnvio;
-    poblarListaAgotados();
+    llenarFormularioAdmin();
   } else if(user){
     // sesión de otra cuenta que no es la admin
     auth.signOut();
