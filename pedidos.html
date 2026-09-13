@@ -27,11 +27,17 @@
   .col h3{font-size:16px;margin:4px 6px 14px;display:flex;justify-content:space-between;}
   .col h3 .count{background:var(--rojo);color:#fff;border-radius:999px;padding:2px 11px;font-size:13px;}
 
-  .card{background:#fff;border-radius:12px;padding:18px;margin-bottom:16px;border-left:6px solid var(--rojo);box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+  .card{background:#fff;border-radius:12px;padding:18px;margin-bottom:16px;border-left:6px solid var(--rojo);box-shadow:0 2px 8px rgba(0,0,0,0.1);position:relative;}
+  .btn-borrar{
+    position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;
+    background:#eee;color:#888;border:none;font-size:13px;font-weight:800;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .btn-borrar:hover{background:var(--rojo);color:#fff;}
   .card.preparando{border-left-color:var(--amarillo);}
   .card.listo{border-left-color:var(--verde);}
   .card.entregado{border-left-color:#999;opacity:0.6;}
-  .card .top{display:flex;justify-content:space-between;font-weight:800;font-size:17px;}
+  .card .top{display:flex;justify-content:space-between;font-weight:800;font-size:17px;padding-right:22px;}
   .card .hora{font-size:12.5px;color:#8a7f6c;font-weight:600;}
   .card .linea{font-size:14.5px;margin-top:8px;line-height:1.6;}
   .card .items{font-size:14.5px;margin:8px 0;padding-left:18px;}
@@ -311,6 +317,7 @@ function tarjeta(p){
   const mapaBtn = p.ubicacion ? `<a class="btn-mapa" href="https://www.google.com/maps?q=${p.ubicacion.lat},${p.ubicacion.lng}" target="_blank">📍 Mapa</a>` : '';
   const creadoMs = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().getTime() : 0;
   div.innerHTML = `
+    <button class="btn-borrar" data-id="${p.id}" title="Borrar pedido">✕</button>
     <div class="top"><span>${p.nombre || 'Sin nombre'} · #${p.id.slice(-6).toUpperCase()}</span><span class="hora">${formatoHora(p.createdAt)}${(estado === 'nuevo' || estado === 'preparando') ? `<span class="timer" data-created="${creadoMs}"></span>` : ''}</span></div>
     <div class="linea">🛵 ${p.entrega}${p.telefono ? ' · 📱 '+p.telefono : ''}</div>
     <ul class="items">${itemsHtml}</ul>
@@ -329,7 +336,13 @@ function tarjeta(p){
   const btn = div.querySelector('.btn-avanzar');
   if(btn) btn.addEventListener('click', ()=> avanzarEstado(btn.dataset.id, btn.dataset.estado));
   div.querySelector('.btn-editar').addEventListener('click', ()=> abrirEditor(p.id));
+  div.querySelector('.btn-borrar').addEventListener('click', ()=> borrarPedido(p.id, p.nombre));
   return div;
+}
+
+function borrarPedido(id, nombre){
+  if(!confirm(`¿Borrar el pedido de ${nombre || 'este cliente'}? Esto no se puede deshacer.`)) return;
+  db.collection('pedidos').doc(id).delete().catch(err=> alert('No se pudo borrar: ' + err.message));
 }
 
 function renderTablero(pedidos){
