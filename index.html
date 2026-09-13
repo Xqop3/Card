@@ -150,6 +150,13 @@
   .card.especial .card-name{font-size:17px;}
   .card.especial .card-price{font-size:19px;}
 
+  .card.agotado{opacity:0.5;filter:grayscale(0.7);background:#f2ede4;}
+  .card.agotado .card-thumb{cursor:default;}
+  .agotado-badge{
+    margin-top:10px;font-weight:800;color:var(--rojo-2);font-size:13px;
+    background:#fdecea;border-radius:8px;padding:8px;text-align:center;
+  }
+
   .card-controls{
     display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px;flex-wrap:wrap;
   }
@@ -258,6 +265,17 @@
   }
   .admin-box textarea{min-height:60px;resize:vertical;}
   .admin-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;font-weight:700;font-size:14px;}
+  .agotados-lista{
+    max-height:220px;overflow-y:auto;border:1.5px solid var(--linea);border-radius:8px;
+    padding:8px 10px;margin-top:6px;
+  }
+  .agotados-lista .sec-titulo{font-weight:800;font-size:12px;color:var(--rojo-2);margin:10px 0 4px;text-transform:uppercase;}
+  .agotados-lista .sec-titulo:first-child{margin-top:0;}
+  .agotados-lista label{
+    display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;
+    padding:5px 0;margin:0;cursor:pointer;
+  }
+  .agotados-lista input{width:18px;height:18px;flex:0 0 18px;}
   .admin-toggle input{width:20px;height:20px;}
   .admin-btn{
     margin-top:18px;width:100%;background:var(--rojo);color:#fff;border:none;border-radius:8px;
@@ -485,6 +503,9 @@
         <input type="checkbox" id="cfgPermitirRecoger">
       </div>
 
+      <label>🚫 Productos agotados hoy (se marcan grises, no se pueden pedir)</label>
+      <div id="agotadosLista" class="agotados-lista"></div>
+
       <button class="admin-btn" id="adminGuardarBtn">Guardar cambios</button>
       <button class="admin-btn secondary" id="adminLogoutBtn">Cerrar sesión</button>
       <div class="admin-msg ok" id="adminGuardarMsg"></div>
@@ -508,7 +529,7 @@ const settingsRef = db.collection('settings').doc('config');
 const pedidosRef = db.collection('pedidos');
 const clientesRef = db.collection('clientes');
 const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
-let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false };
+let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[] };
 let happyCardSaldo = 0;
 let happyCardDescuentoAplicado = 0;
 let pin = {lat:null, lng:null, distKm:null, fee:null, calculando:false, ruta:'osrm'};
@@ -754,8 +775,9 @@ function render(){
     menu[sec].forEach(item=>{
       const thumbData = itemThumbs[item.id];
       const thumb = thumbData ? `<img class="card-thumb" src="${IMG[thumbData.thumb]}" alt="" onclick="abrirZoom('${thumbData.zoom}')">` : '';
+      const agotado = cfg.agotados && cfg.agotados.includes(item.id);
       out += `
-        <div class="card${sec === 'Especiales' ? ' especial' : ''}">
+        <div class="card${sec === 'Especiales' ? ' especial' : ''}${agotado ? ' agotado' : ''}">
           <div class="card-top">
             <div class="card-name-row">
               ${thumb}
@@ -766,6 +788,7 @@ function render(){
             </div>
             <div class="card-price">$${item.price}</div>
           </div>
+          ${agotado ? `<div class="agotado-badge">🚫 Agotado por hoy</div>` : `
           <div class="card-controls">
             <div class="stepper">
               <button onclick="changeQty('${item.id}',-1)">−</button>
@@ -773,7 +796,7 @@ function render(){
               <button onclick="changeQty('${item.id}',1)">+</button>
             </div>
           </div>
-          ${hasVariants(item) ? `<div class="units-box" id="units-${item.id}"></div>` : ''}
+          ${hasVariants(item) ? `<div class="units-box" id="units-${item.id}"></div>` : ''}`}
         </div>`;
     });
     out += `</div>`;
@@ -1372,7 +1395,8 @@ function applySettings(s){
     promoImagenId: s.promoImagenId || '',
     sinEnvioHoy: !!s.sinEnvioHoy,
     mensajeSinEnvio: s.mensajeSinEnvio || 'Hoy no tenemos servicio a domicilio, solo puedes recoger en el local.',
-    permitirRecoger: !!s.permitirRecoger
+    permitirRecoger: !!s.permitirRecoger,
+    agotados: Array.isArray(s.agotados) ? s.agotados : []
   };
 
   const banner = document.getElementById('bannerCerrado');
@@ -1416,13 +1440,28 @@ function applySettings(s){
   }
 
   const promoChanged = cfg.promoActiva ? insertarPromo(cfg) : quitarPromo();
-  if(promoChanged){
+
+  const agotadosStr = JSON.stringify(cfg.agotados.slice().sort());
+  const agotadosChanged = agotadosStr !== agotadosAnteriores;
+  agotadosAnteriores = agotadosStr;
+  if(agotadosChanged){
+    // Si un producto se marcó agotado teniendo ya cantidad en el carrito, la reseteamos.
+    cfg.agotados.forEach(id=>{
+      if(state[id] && state[id].qty > 0){
+        state[id].qty = 0;
+        if(state[id].units) state[id].units = [];
+      }
+    });
+  }
+
+  if(promoChanged || agotadosChanged){
     render();
     syncCartDisplay();
   }
   updateCartBar();
   actualizarHorarioBadge();
 }
+let agotadosAnteriores = '';
 
 /* ===================== Cronómetro de horario (Sáb–Dom 6–11 PM) ===================== */
 function formatoHoraCorta(fecha){
@@ -1520,13 +1559,29 @@ auth.onAuthStateChanged(user=>{
     document.getElementById('cfgSinEnvio').checked = cfg.sinEnvioHoy;
     document.getElementById('cfgPermitirRecoger').checked = cfg.permitirRecoger;
     document.getElementById('cfgMensajeSinEnvio').value = cfg.mensajeSinEnvio;
+    poblarListaAgotados();
   } else if(user){
     // sesión de otra cuenta que no es la admin
     auth.signOut();
   }
 });
 
+function poblarListaAgotados(){
+  const cont = document.getElementById('agotadosLista');
+  let html = '';
+  for(const sec in menu){
+    if(sec === '🔥 Promo de hoy') continue;
+    html += `<div class="sec-titulo">${sec}</div>`;
+    menu[sec].forEach(item=>{
+      const marcado = cfg.agotados && cfg.agotados.includes(item.id) ? 'checked' : '';
+      html += `<label><input type="checkbox" value="${item.id}" ${marcado}> ${item.name}</label>`;
+    });
+  }
+  cont.innerHTML = html;
+}
+
 document.getElementById('adminGuardarBtn').addEventListener('click', ()=>{
+  const agotados = Array.from(document.querySelectorAll('#agotadosLista input:checked')).map(el => el.value);
   const nuevo = {
     cerradoHoy: document.getElementById('cfgCerrado').checked,
     mensajeCerrado: document.getElementById('cfgMensajeCerrado').value.trim(),
@@ -1537,7 +1592,8 @@ document.getElementById('adminGuardarBtn').addEventListener('click', ()=>{
     promoImagenId: document.getElementById('cfgPromoImagen').value,
     sinEnvioHoy: document.getElementById('cfgSinEnvio').checked,
     permitirRecoger: document.getElementById('cfgPermitirRecoger').checked,
-    mensajeSinEnvio: document.getElementById('cfgMensajeSinEnvio').value.trim()
+    mensajeSinEnvio: document.getElementById('cfgMensajeSinEnvio').value.trim(),
+    agotados
   };
   const msg = document.getElementById('adminGuardarMsg');
   settingsRef.set(nuevo, { merge: true }).then(()=>{
