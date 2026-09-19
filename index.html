@@ -610,16 +610,16 @@ const menu = {
     {id:'pasta', name:'Pasta', price:130, desc:'Elige Alfredo o Chipotle, tu proteína y una salsa extra incluida.', typeChoice:['Alfredo','Chipotle'], proteinChoice:['Pollo empanizado','Pollo a la plancha','Champiñones','Boneless'], sauceChoice:true}
   ],
   "Salsas extra": [
-    {id:'salsa-bbq', name:'BBQ', price:15},
-    {id:'salsa-bufalo', name:'Búfalo', price:15},
-    {id:'salsa-mango', name:'Mango habanero', price:15},
-    {id:'salsa-bluecheese', name:'Blue cheese', price:15},
-    {id:'salsa-tamarindo', name:'Tamarindo', price:15}
+    {id:'salsa-bbq', name:'BBQ', price:15, targetChoice:true},
+    {id:'salsa-bufalo', name:'Búfalo', price:15, targetChoice:true},
+    {id:'salsa-mango', name:'Mango habanero', price:15, targetChoice:true},
+    {id:'salsa-bluecheese', name:'Blue cheese', price:15, targetChoice:true},
+    {id:'salsa-tamarindo', name:'Tamarindo', price:15, targetChoice:true}
   ],
   "Ingredientes extra": [
-    {id:'carne-extra', name:'Carne extra hamburguesa', price:35},
-    {id:'tocino-extra', name:'Tocino extra (1 tira)', price:15},
-    {id:'pollo-extra', name:'Carne extra pollo crunchy', price:49}
+    {id:'carne-extra', name:'Carne extra hamburguesa', price:35, targetChoice:true},
+    {id:'tocino-extra', name:'Tocino extra (1 tira)', price:15, targetChoice:true},
+    {id:'pollo-extra', name:'Carne extra pollo crunchy', price:49, targetChoice:true}
   ]
 };
 
@@ -712,15 +712,50 @@ const secNotes = {
 const state = {}; // id -> {qty, sauce, type, protein}
 
 function hasVariants(item){
-  return !!(item.typeChoice || item.proteinChoice || item.sauceChoice);
+  return !!(item.typeChoice || item.proteinChoice || item.sauceChoice || item.targetChoice);
 }
 
 function defaultUnit(item){
   return {
     type: item.typeChoice ? item.typeChoice[0] : null,
     protein: item.proteinChoice ? item.proteinChoice[0] : null,
-    sauce: item.sauceChoice ? sauceOptions[0] : null
+    sauce: item.sauceChoice ? sauceOptions[0] : null,
+    target: item.targetChoice ? null : null
   };
+}
+
+function getFoodTargets(){
+  const targets = [];
+  for(const sec in menu){
+    if(sec === 'Salsas extra' || sec === 'Ingredientes extra') continue;
+    menu[sec].forEach(item=>{
+      const s = state[item.id];
+      if(!s) return;
+      const count = hasVariants(item) ? s.units.length : s.qty;
+      for(let i=0; i<count; i++){
+        targets.push(count > 1 ? `${item.name} #${i+1}` : item.name);
+      }
+    });
+  }
+  return targets;
+}
+
+function refreshExtraTargets(){
+  ['Salsas extra','Ingredientes extra'].forEach(sec=>{
+    (menu[sec] || []).forEach(item=>{
+      const s = state[item.id];
+      if(!s || !s.units) return;
+      const targets = getFoodTargets();
+      s.units.forEach(u=>{
+        if(targets.length <= 1){
+          u.target = targets[0] || null;
+        } else if(u.target && !targets.includes(u.target)){
+          u.target = '';
+        }
+      });
+      renderUnits(item.id);
+    });
+  });
 }
 
 function initState(){
@@ -746,6 +781,14 @@ function unitSelectHTML(item, idx){
     html += `<select onchange="state['${item.id}'].units[${idx}].sauce=this.value">` +
       sauceOptions.map(s=>`<option value="${s}">${s}</option>`).join('') + `</select>`;
   }
+  if(item.targetChoice){
+    const targets = getFoodTargets();
+    const current = state[item.id].units[idx].target || '';
+    html += `<select onchange="state['${item.id}'].units[${idx}].target=this.value">` +
+      `<option value="">¿Para cuál platillo?</option>` +
+      targets.map(t=>`<option value="${t}" ${t===current?'selected':''}>${t}</option>`).join('') +
+      `</select>`;
+  }
   return html;
 }
 
@@ -755,6 +798,7 @@ function renderUnits(id){
   if(!box) return;
   const units = state[id].units;
   if(units.length === 0){ box.innerHTML = ''; return; }
+  if(item.targetChoice && getFoodTargets().length <= 1){ box.innerHTML = ''; return; }
   box.innerHTML = units.map((u,idx)=>`
     <div class="unit-row">
       <span class="unit-label">#${idx+1}</span>
@@ -835,6 +879,7 @@ function changeQty(id, delta){
   s.qty = newQty;
   document.getElementById('qty-'+id).textContent = s.qty;
   updateCartBar();
+  refreshExtraTargets();
 }
 
 function updateCartBar(){
@@ -950,6 +995,7 @@ function buildOrderData(){
             if(item.typeChoice) variant.push(u.type);
             if(item.proteinChoice) variant.push(u.protein);
             if(item.sauceChoice) variant.push('salsa: '+u.sauce);
+            if(item.targetChoice && u.target) variant.push('para: '+u.target);
             subtotal += item.price;
             itemsResumen.push({ nombre: item.name + (variant.length?` (${variant.join(', ')})`:''), cantidad:1, precio:item.price });
           });
@@ -1020,6 +1066,7 @@ function buildMessage(){
             if(item.typeChoice) variant.push(u.type);
             if(item.proteinChoice) variant.push(u.protein);
             if(item.sauceChoice) variant.push('salsa: '+u.sauce);
+            if(item.targetChoice && u.target) variant.push('para: '+u.target);
             const variantTxt = variant.length ? ` (${variant.join(', ')})` : '';
             subtotal += item.price;
             secLines.push(`1x ${item.name}${variantTxt} — $${item.price}`);
