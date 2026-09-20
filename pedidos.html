@@ -165,6 +165,7 @@
     <label style="font-size:12px;font-weight:700;">Agregar del menú</label>
     <div style="display:flex;gap:6px;margin:6px 0 12px;flex-wrap:wrap;">
       <select id="menuPickerSelect" style="flex:1 1 200px;min-width:0;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
+      <select id="menuPickerSalsa" style="flex:1 1 160px;min-width:0;display:none;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
       <input type="number" id="menuPickerCant" min="1" value="1" style="flex:0 0 55px;min-width:0;">
       <button type="button" id="menuPickerAddBtn" style="flex:0 0 90px;background:var(--azul);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Agregar</button>
     </div>
@@ -244,13 +245,14 @@ const ADMIN_EMAIL = 'happyburguermid@gmail.com';
 const settingsRef = db.collection('settings').doc('config');
 
 // Copia ligera (solo id/nombre/precio) del menú de index.html, para el selector del pedido de mostrador.
+const SAUCE_OPTIONS = ['BBQ','Búfalo','Mango habanero','Blue cheese','Tamarindo','Natural (sin bañar, salsa aparte)'];
 const MENU_ITEMS = [
   {sec:'Entradas', id:'papas', name:'Papas a la francesa', price:70},
-  {sec:'Entradas', id:'aros', name:'Aros de cebolla', price:75},
-  {sec:'Entradas', id:'tenders', name:'Tenders de pollo crujientes', price:159},
-  {sec:'Entradas', id:'boneless8', name:'Boneless (8 pz)', price:140},
-  {sec:'Entradas', id:'boneless18', name:'Boneless (16 pz)', price:275},
-  {sec:'Las de pollo', id:'crunchy', name:'Crunchy Chicken', price:130},
+  {sec:'Entradas', id:'aros', name:'Aros de cebolla', price:75, sauceChoice:true},
+  {sec:'Entradas', id:'tenders', name:'Tenders de pollo crujientes', price:159, sauceChoice:true},
+  {sec:'Entradas', id:'boneless8', name:'Boneless (8 pz)', price:140, sauceChoice:true},
+  {sec:'Entradas', id:'boneless18', name:'Boneless (16 pz)', price:275, sauceChoice:true},
+  {sec:'Las de pollo', id:'crunchy', name:'Crunchy Chicken', price:130, sauceChoice:true},
   {sec:'Las de pollo', id:'honey', name:'Spicy Honey Chicken', price:140},
   {sec:'Especiales', id:'mexa', name:'Mexa Burger', price:140},
   {sec:'Especiales', id:'beast', name:'Beast Mode Burger', price:169},
@@ -260,7 +262,7 @@ const MENU_ITEMS = [
   {sec:'Hamburguesas', id:'pineapple', name:'Pineapple Burger', price:130},
   {sec:'Hamburguesas', id:'habanero', name:'Habanero Burger', price:130},
   {sec:'Hamburguesas', id:'mushroom', name:'Garlic Mushroom Burger', price:130},
-  {sec:'Pastas', id:'pasta', name:'Pasta', price:130},
+  {sec:'Pastas', id:'pasta', name:'Pasta', price:130, sauceChoice:true},
   {sec:'Salsas extra', id:'salsa-bbq', name:'Salsa BBQ', price:15},
   {sec:'Salsas extra', id:'salsa-bufalo', name:'Salsa Búfalo', price:15},
   {sec:'Salsas extra', id:'salsa-mango', name:'Salsa Mango habanero', price:15},
@@ -292,12 +294,27 @@ function poblarMenuPicker(){
     html += `<optgroup label="${sec}">`;
     bySec[sec].forEach(item=>{
       const agotado = cfg.agotados.includes(item.id);
-      html += `<option value="${item.id}" data-price="${item.price}" data-name="${item.name.replace(/"/g,'&quot;')}"${agotado ? ' disabled' : ''}>${item.name} — $${item.price}${agotado ? ' (agotado hoy)' : ''}</option>`;
+      html += `<option value="${item.id}" data-price="${item.price}" data-name="${item.name.replace(/"/g,'&quot;')}" data-sauce="${item.sauceChoice ? '1' : ''}"${agotado ? ' disabled' : ''}>${item.name} — $${item.price}${agotado ? ' (agotado hoy)' : ''}</option>`;
     });
     html += `</optgroup>`;
   });
   select.innerHTML = html;
   if(seleccionPrevia) select.value = seleccionPrevia;
+  actualizarMenuPickerSalsa();
+}
+
+function poblarMenuPickerSalsa(){
+  const select = document.getElementById('menuPickerSalsa');
+  if(!select) return;
+  select.innerHTML = SAUCE_OPTIONS.map(s=>`<option value="${s}">${s}</option>`).join('');
+}
+
+function actualizarMenuPickerSalsa(){
+  const select = document.getElementById('menuPickerSelect');
+  const salsaSelect = document.getElementById('menuPickerSalsa');
+  if(!select || !salsaSelect) return;
+  const opt = select.options[select.selectedIndex];
+  salsaSelect.style.display = (opt && opt.dataset.sauce) ? 'block' : 'none';
 }
 
 function conectarSettings(){
@@ -778,13 +795,19 @@ document.getElementById('nuevoManualBtn').addEventListener('click', ()=>{
   document.getElementById('manualOverlay').classList.add('show');
 });
 
+document.getElementById('menuPickerSelect').addEventListener('change', actualizarMenuPickerSalsa);
+
 document.getElementById('menuPickerAddBtn').addEventListener('click', ()=>{
   const select = document.getElementById('menuPickerSelect');
   const opt = select.options[select.selectedIndex];
   if(!opt){ alert('No hay productos disponibles.'); return; }
   if(opt.disabled){ alert('Ese producto está marcado como agotado hoy.'); return; }
   const precioUnitario = Number(opt.dataset.price) || 0;
-  const nombre = opt.dataset.name || opt.textContent;
+  let nombre = opt.dataset.name || opt.textContent;
+  if(opt.dataset.sauce){
+    const salsa = document.getElementById('menuPickerSalsa').value;
+    nombre += ` (salsa: ${salsa})`;
+  }
   const cantidad = Math.max(1, Number(document.getElementById('menuPickerCant').value) || 1);
   document.getElementById('manualRows').appendChild(
     filaEditor({ cantidad, nombre, precio: precioUnitario * cantidad }, recalcularManual)
@@ -792,6 +815,8 @@ document.getElementById('menuPickerAddBtn').addEventListener('click', ()=>{
   document.getElementById('menuPickerCant').value = 1;
   recalcularManual();
 });
+
+poblarMenuPickerSalsa();
 
 document.getElementById('manualCancelar').addEventListener('click', ()=>{
   document.getElementById('manualOverlay').classList.remove('show');
