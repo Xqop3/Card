@@ -163,10 +163,14 @@
     <h3>🧾 Pedido de mostrador</h3>
 
     <label style="font-size:12px;font-weight:700;">Agregar del menú</label>
-    <div style="display:flex;gap:6px;margin:6px 0 12px;flex-wrap:wrap;">
+    <div style="display:flex;gap:6px;margin:6px 0 6px;flex-wrap:wrap;">
       <select id="menuPickerSelect" style="flex:1 1 200px;min-width:0;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
       <input type="number" id="menuPickerCant" min="1" value="1" style="flex:0 0 55px;min-width:0;">
       <button type="button" id="menuPickerAddBtn" style="flex:0 0 90px;background:var(--azul);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Agregar</button>
+    </div>
+    <div style="display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap;">
+      <select id="menuPickerSalsa" style="flex:1 1 200px;min-width:0;display:none;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
+      <select id="menuPickerSalsaAparte" style="flex:1 1 200px;min-width:0;display:none;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
     </div>
 
     <div class="edit-row" style="font-size:11px;font-weight:800;color:#8a7f6c;">
@@ -225,17 +229,6 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="salsaPickerOverlay">
-  <div class="modal-box" style="max-width:340px;">
-    <h3 id="salsaPickerTitulo">🌶️ Elige la salsa</h3>
-    <select id="salsaPickerSelect" style="width:100%;padding:10px;border:1.5px solid var(--linea);border-radius:8px;font-size:14px;margin-bottom:14px;"></select>
-    <div class="modal-btns">
-      <button class="btn-cancelar" id="salsaPickerCancelar" type="button">Cancelar</button>
-      <button class="btn-guardar" id="salsaPickerConfirmar" type="button">Agregar</button>
-    </div>
-  </div>
-</div>
-
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -255,13 +248,14 @@ const ADMIN_EMAIL = 'happyburguermid@gmail.com';
 const settingsRef = db.collection('settings').doc('config');
 
 // Copia ligera (solo id/nombre/precio) del menú de index.html, para el selector del pedido de mostrador.
-const SAUCE_OPTIONS = ['BBQ','Búfalo','Mango habanero','Blue cheese','Tamarindo','Natural (sin bañar, salsa aparte)'];
+const SAUCE_OPTIONS = ['BBQ','Búfalo','Mango habanero','Blue cheese','Tamarindo'];
+const NATURAL_OPTION = 'Natural (sin bañar, salsa aparte)';
 const MENU_ITEMS = [
   {sec:'Entradas', id:'papas', name:'Papas a la francesa', price:70},
   {sec:'Entradas', id:'aros', name:'Aros de cebolla', price:75, sauceChoice:true},
   {sec:'Entradas', id:'tenders', name:'Tenders de pollo crujientes', price:159, sauceChoice:true},
-  {sec:'Entradas', id:'boneless8', name:'Boneless (8 pz)', price:140, sauceChoice:true},
-  {sec:'Entradas', id:'boneless18', name:'Boneless (16 pz)', price:275, sauceChoice:true},
+  {sec:'Entradas', id:'boneless8', name:'Boneless (8 pz)', price:140, sauceChoice:true, naturalChoice:true},
+  {sec:'Entradas', id:'boneless18', name:'Boneless (16 pz)', price:275, sauceChoice:true, naturalChoice:true},
   {sec:'Las de pollo', id:'crunchy', name:'Crunchy Chicken', price:130, sauceChoice:true},
   {sec:'Las de pollo', id:'honey', name:'Spicy Honey Chicken', price:140},
   {sec:'Especiales', id:'mexa', name:'Mexa Burger', price:140},
@@ -304,26 +298,43 @@ function poblarMenuPicker(){
     html += `<optgroup label="${sec}">`;
     bySec[sec].forEach(item=>{
       const agotado = cfg.agotados.includes(item.id);
-      html += `<option value="${item.id}" data-price="${item.price}" data-name="${item.name.replace(/"/g,'&quot;')}" data-sauce="${item.sauceChoice ? '1' : ''}"${agotado ? ' disabled' : ''}>${item.name} — $${item.price}${agotado ? ' (agotado hoy)' : ''}</option>`;
+      html += `<option value="${item.id}" data-price="${item.price}" data-name="${item.name.replace(/"/g,'&quot;')}" data-sauce="${item.sauceChoice ? '1' : ''}" data-natural="${item.naturalChoice ? '1' : ''}"${agotado ? ' disabled' : ''}>${item.name} — $${item.price}${agotado ? ' (agotado hoy)' : ''}</option>`;
     });
     html += `</optgroup>`;
   });
   select.innerHTML = html;
   if(seleccionPrevia) select.value = seleccionPrevia;
+  actualizarMenuPickerSalsa();
 }
 
-let salsaPickerPendiente = null;
-
-function abrirSalsaPicker(nombre, precioUnitario, cantidad){
-  salsaPickerPendiente = { nombre, precioUnitario, cantidad };
-  document.getElementById('salsaPickerTitulo').textContent = `🌶️ Salsa para: ${nombre}`;
-  document.getElementById('salsaPickerSelect').innerHTML = SAUCE_OPTIONS.map(s=>`<option value="${s}">${s}</option>`).join('');
-  document.getElementById('salsaPickerOverlay').classList.add('show');
+function actualizarMenuPickerSalsa(){
+  const select = document.getElementById('menuPickerSelect');
+  const salsaSelect = document.getElementById('menuPickerSalsa');
+  const aparteSelect = document.getElementById('menuPickerSalsaAparte');
+  if(!select || !salsaSelect || !aparteSelect) return;
+  const opt = select.options[select.selectedIndex];
+  if(!opt || !opt.dataset.sauce){
+    salsaSelect.style.display = 'none';
+    aparteSelect.style.display = 'none';
+    return;
+  }
+  salsaSelect.style.display = 'block';
+  const opciones = opt.dataset.natural ? SAUCE_OPTIONS.concat([NATURAL_OPTION]) : SAUCE_OPTIONS;
+  salsaSelect.innerHTML = opciones.map(s=>`<option value="${s}">${s}</option>`).join('');
+  actualizarMenuPickerSalsaAparte();
 }
 
-function cerrarSalsaPicker(){
-  document.getElementById('salsaPickerOverlay').classList.remove('show');
-  salsaPickerPendiente = null;
+function actualizarMenuPickerSalsaAparte(){
+  const salsaSelect = document.getElementById('menuPickerSalsa');
+  const aparteSelect = document.getElementById('menuPickerSalsaAparte');
+  if(!salsaSelect || !aparteSelect) return;
+  if(salsaSelect.style.display !== 'none' && salsaSelect.value === NATURAL_OPTION){
+    aparteSelect.innerHTML = `<option value="">¿Qué salsa quieres aparte?</option>` +
+      SAUCE_OPTIONS.map(s=>`<option value="${s}">${s}</option>`).join('');
+    aparteSelect.style.display = 'block';
+  } else {
+    aparteSelect.style.display = 'none';
+  }
 }
 
 function conectarSettings(){
@@ -816,38 +827,34 @@ document.getElementById('nuevoManualBtn').addEventListener('click', ()=>{
   document.getElementById('manualOverlay').classList.add('show');
 });
 
+document.getElementById('menuPickerSelect').addEventListener('change', actualizarMenuPickerSalsa);
+document.getElementById('menuPickerSalsa').addEventListener('change', actualizarMenuPickerSalsaAparte);
+
 document.getElementById('menuPickerAddBtn').addEventListener('click', ()=>{
   const select = document.getElementById('menuPickerSelect');
   const opt = select.options[select.selectedIndex];
   if(!opt){ alert('No hay productos disponibles.'); return; }
   if(opt.disabled){ alert('Ese producto está marcado como agotado hoy.'); return; }
   const precioUnitario = Number(opt.dataset.price) || 0;
-  const nombre = opt.dataset.name || opt.textContent;
+  let nombre = opt.dataset.name || opt.textContent;
   const cantidad = Math.max(1, Number(document.getElementById('menuPickerCant').value) || 1);
 
   if(opt.dataset.sauce){
-    abrirSalsaPicker(nombre, precioUnitario, cantidad);
-    return;
+    const salsa = document.getElementById('menuPickerSalsa').value;
+    if(salsa === NATURAL_OPTION){
+      const salsaAparte = document.getElementById('menuPickerSalsaAparte').value;
+      if(!salsaAparte){ alert('Elige qué salsa quieren aparte.'); return; }
+      nombre += ` (natural, salsa aparte: ${salsaAparte})`;
+    } else {
+      nombre += ` (salsa: ${salsa})`;
+    }
   }
+
   document.getElementById('manualRows').appendChild(
     filaEditor({ cantidad, nombre, precio: precioUnitario * cantidad }, recalcularManual)
   );
   document.getElementById('menuPickerCant').value = 1;
   recalcularManual();
-});
-
-document.getElementById('salsaPickerCancelar').addEventListener('click', cerrarSalsaPicker);
-
-document.getElementById('salsaPickerConfirmar').addEventListener('click', ()=>{
-  if(!salsaPickerPendiente) return;
-  const { nombre, precioUnitario, cantidad } = salsaPickerPendiente;
-  const salsa = document.getElementById('salsaPickerSelect').value;
-  document.getElementById('manualRows').appendChild(
-    filaEditor({ cantidad, nombre: `${nombre} (salsa: ${salsa})`, precio: precioUnitario * cantidad }, recalcularManual)
-  );
-  document.getElementById('menuPickerCant').value = 1;
-  recalcularManual();
-  cerrarSalsaPicker();
 });
 
 document.getElementById('manualCancelar').addEventListener('click', ()=>{
