@@ -106,6 +106,8 @@
       <span class="ventas pedidos" id="ventasPedidos">🍔 Pedidos: $0</span>
       <span class="ventas envios" id="ventasEnvios">🛵 Envíos: $0</span>
     </div>
+    <button id="nuevoManualBtn" style="background:#6c5ce7;">🧾 Pedido de mostrador</button>
+    <button id="cajaBtn" style="background:var(--verde);">💰 Caja</button>
     <button id="borrarTodoBtn" style="background:#6c1a1a;">🗑️ Borrar todos</button>
     <button id="logoutBtn">Cerrar sesión</button>
   </header>
@@ -150,6 +152,59 @@
     <div class="modal-btns">
       <button class="btn-cancelar" id="editCancelar">Cancelar</button>
       <button class="btn-guardar" id="editGuardar">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="manualOverlay">
+  <div class="modal-box">
+    <h3>🧾 Pedido de mostrador</h3>
+    <div class="edit-row" style="font-size:11px;font-weight:800;color:#8a7f6c;">
+      <span style="flex:1;">Cant</span><span style="flex:2;">Producto</span><span style="flex:1;">$ Total línea</span><span style="width:28px;"></span>
+    </div>
+    <div id="manualRows"></div>
+    <button class="add-row-btn" id="manualAddRow" type="button">+ Agregar producto</button>
+    <div class="modal-totales">
+      <label>Subtotal <span id="manualSubtotal">$0</span></label>
+      <label>Envío <input type="number" id="manualEnvio" min="0" value="0"></label>
+      <label>Descuento <input type="number" id="manualDescuento" min="0" value="0"></label>
+    </div>
+    <div class="modal-total-final">Total: $<span id="manualTotalFinal">0</span></div>
+
+    <label style="font-size:12px;font-weight:700;display:block;margin-top:10px;">Cliente (opcional)</label>
+    <input type="text" id="manualNombre" placeholder="Nombre del cliente" style="width:100%;margin-bottom:8px;">
+
+    <label style="font-size:12px;font-weight:700;">Forma de pago</label>
+    <div style="display:flex;gap:10px;margin:6px 0 10px;font-size:13px;">
+      <label><input type="radio" name="manualPago" value="Efectivo" checked> Efectivo</label>
+      <label><input type="radio" name="manualPago" value="Transferencia"> Transferencia</label>
+      <label><input type="radio" name="manualPago" value="Tarjeta"> Tarjeta</label>
+    </div>
+
+    <label style="font-size:12px;font-weight:700;">Estado</label>
+    <select id="manualEstado" style="width:100%;margin-bottom:10px;padding:7px;border:1.5px solid var(--linea);border-radius:6px;">
+      <option value="entregado" selected>Ya entregado (venta directa en mostrador)</option>
+      <option value="nuevo">Nuevo (aún por preparar)</option>
+      <option value="preparando">En preparación</option>
+      <option value="listo">Listo para entregar</option>
+    </select>
+
+    <label style="font-size:12px;font-weight:700;">Notas</label>
+    <textarea id="manualNotas"></textarea>
+
+    <div class="modal-btns">
+      <button class="btn-cancelar" id="manualCancelar" type="button">Cancelar</button>
+      <button class="btn-guardar" id="manualGuardar" type="button">Registrar pedido</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="cajaOverlay">
+  <div class="modal-box">
+    <h3>💰 Corte de caja — <span id="cajaFecha"></span></h3>
+    <div id="cajaContenido"></div>
+    <div class="modal-btns">
+      <button class="btn-cancelar" id="cajaCerrarModal" type="button">Cerrar</button>
     </div>
   </div>
 </div>
@@ -409,7 +464,8 @@ function renderTablero(pedidos){
 /* ===================== Editor de pedidos ===================== */
 let editandoId = null;
 
-function filaEditor(item){
+function filaEditor(item, onChange){
+  const cb = onChange || recalcularEdicion;
   const row = document.createElement('div');
   row.className = 'edit-row';
   row.innerHTML = `
@@ -418,8 +474,8 @@ function filaEditor(item){
     <input type="number" class="ed-precio" min="0" value="${item.precio}">
     <button type="button">✕</button>
   `;
-  row.querySelectorAll('input').forEach(inp=> inp.addEventListener('input', recalcularEdicion));
-  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); recalcularEdicion(); });
+  row.querySelectorAll('input').forEach(inp=> inp.addEventListener('input', cb));
+  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); cb(); });
   return row;
 }
 
@@ -572,6 +628,183 @@ document.getElementById('optimizarRutaBtn').addEventListener('click', async ()=>
   }catch(e){
     box.innerHTML = '<div class="ruta-box">⚠️ No se pudo calcular la ruta (sin internet o el servicio no respondió). Intenta de nuevo.</div>';
   }
+});
+
+/* ===================== Pedido de mostrador (manual) ===================== */
+function recalcularManual(){
+  let subtotal = 0;
+  document.querySelectorAll('#manualRows .edit-row').forEach(row=>{
+    subtotal += Number(row.querySelector('.ed-precio').value) || 0;
+  });
+  const envio = Number(document.getElementById('manualEnvio').value) || 0;
+  const descuento = Number(document.getElementById('manualDescuento').value) || 0;
+  const total = Math.max(0, subtotal + envio - descuento);
+  document.getElementById('manualSubtotal').textContent = '$' + subtotal;
+  document.getElementById('manualTotalFinal').textContent = total;
+}
+
+document.getElementById('manualEnvio').addEventListener('input', recalcularManual);
+document.getElementById('manualDescuento').addEventListener('input', recalcularManual);
+
+document.getElementById('manualAddRow').addEventListener('click', ()=>{
+  document.getElementById('manualRows').appendChild(filaEditor({cantidad:1, nombre:'', precio:0}, recalcularManual));
+  recalcularManual();
+});
+
+document.getElementById('nuevoManualBtn').addEventListener('click', ()=>{
+  document.getElementById('manualRows').innerHTML = '';
+  document.getElementById('manualRows').appendChild(filaEditor({cantidad:1, nombre:'', precio:0}, recalcularManual));
+  document.getElementById('manualEnvio').value = 0;
+  document.getElementById('manualDescuento').value = 0;
+  document.getElementById('manualNombre').value = '';
+  document.getElementById('manualNotas').value = '';
+  document.getElementById('manualEstado').value = 'entregado';
+  document.querySelector('input[name="manualPago"][value="Efectivo"]').checked = true;
+  recalcularManual();
+  document.getElementById('manualOverlay').classList.add('show');
+});
+
+document.getElementById('manualCancelar').addEventListener('click', ()=>{
+  document.getElementById('manualOverlay').classList.remove('show');
+});
+
+document.getElementById('manualGuardar').addEventListener('click', ()=>{
+  const items = [];
+  document.querySelectorAll('#manualRows .edit-row').forEach(row=>{
+    const cantidad = Number(row.querySelector('.ed-cant').value) || 0;
+    const nombre = row.querySelector('.ed-nombre').value.trim();
+    const precio = Number(row.querySelector('.ed-precio').value) || 0;
+    if(nombre && cantidad > 0) items.push({ cantidad, nombre, precio });
+  });
+  if(items.length === 0){ alert('Agrega al menos un producto.'); return; }
+
+  const subtotal = items.reduce((sum,it)=> sum + it.precio, 0);
+  const envioFee = Number(document.getElementById('manualEnvio').value) || 0;
+  const descuento = Number(document.getElementById('manualDescuento').value) || 0;
+  const total = Math.max(0, subtotal + envioFee - descuento);
+  const nombre = document.getElementById('manualNombre').value.trim() || 'Cliente mostrador';
+  const notas = document.getElementById('manualNotas').value.trim();
+  const pago = document.querySelector('input[name="manualPago"]:checked').value;
+  const estado = document.getElementById('manualEstado').value;
+
+  const btn = document.getElementById('manualGuardar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  db.collection('pedidos').add({
+    nombre, telefono:'', entrega:'Recoger en tienda', referencia:'', ubicacion:null,
+    pago, cambioTxt:'', montoPagado:null, vuelto:null, notas,
+    items, subtotal, envioFee, descuento, total,
+    estado, origen:'mostrador',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    document.getElementById('manualOverlay').classList.remove('show');
+  }).catch(err=>{
+    alert('No se pudo registrar el pedido: ' + err.message);
+  }).finally(()=>{
+    btn.disabled = false;
+    btn.textContent = 'Registrar pedido';
+  });
+});
+
+/* ===================== Corte de caja ===================== */
+function fechaHoyStr(){
+  const d = new Date();
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function ventasEfectivoHoy(){
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  let total = 0;
+  Object.values(pedidosCache).forEach(p=>{
+    const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : null;
+    if(fecha && fecha >= hoy && p.pago === 'Efectivo'){
+      const subtotal = Number(p.subtotal) || 0;
+      const envio = Number(p.envioFee) || 0;
+      const descuento = Number(p.descuento) || 0;
+      total += Math.max(0, subtotal + envio - descuento);
+    }
+  });
+  return total;
+}
+
+function pintarCaja(data){
+  const box = document.getElementById('cajaContenido');
+  const efectivoHoy = ventasEfectivoHoy();
+
+  if(!data || data.apertura === undefined || data.apertura === null){
+    box.innerHTML = `
+      <p style="font-size:13px;">Aún no se ha registrado la apertura de caja de hoy.</p>
+      <label style="font-size:12px;font-weight:700;">Monto con el que se abre la caja</label>
+      <input type="number" id="cajaAperturaInput" min="0" style="width:100%;margin-bottom:10px;" placeholder="Ej. 500">
+      <button class="btn-guardar" id="cajaAbrirBtn" type="button" style="width:100%;">Abrir caja</button>
+    `;
+    document.getElementById('cajaAbrirBtn').addEventListener('click', ()=>{
+      const monto = Number(document.getElementById('cajaAperturaInput').value);
+      if(isNaN(monto) || monto < 0){ alert('Ingresa un monto válido.'); return; }
+      db.collection('caja').doc(fechaHoyStr()).set({
+        apertura: monto,
+        aperturaHora: firebase.firestore.FieldValue.serverTimestamp(),
+        cierre: null, cierreHora: null
+      }).then(abrirCaja).catch(err=> alert('No se pudo guardar: ' + err.message));
+    });
+    return;
+  }
+
+  if(data.cierre === undefined || data.cierre === null){
+    const esperado = data.apertura + efectivoHoy;
+    const horaApertura = data.aperturaHora && data.aperturaHora.toDate
+      ? data.aperturaHora.toDate().toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : '';
+    box.innerHTML = `
+      <p style="font-size:13px;">🟢 Caja abierta con <strong>$${data.apertura}</strong>${horaApertura ? ' a las ' + horaApertura : ''}.</p>
+      <p style="font-size:13px;">💵 Ventas en efectivo de hoy: <strong>$${efectivoHoy}</strong></p>
+      <p style="font-size:13px;">🧮 Efectivo esperado en caja: <strong>$${esperado}</strong></p>
+      <label style="font-size:12px;font-weight:700;">Monto contado al cerrar</label>
+      <input type="number" id="cajaCierreInput" min="0" style="width:100%;margin-bottom:10px;" placeholder="Ej. 950">
+      <button class="btn-guardar" id="cajaCerrarBtn" type="button" style="width:100%;">Cerrar caja</button>
+    `;
+    document.getElementById('cajaCerrarBtn').addEventListener('click', ()=>{
+      const monto = Number(document.getElementById('cajaCierreInput').value);
+      if(isNaN(monto) || monto < 0){ alert('Ingresa un monto válido.'); return; }
+      const diferencia = Number((monto - esperado).toFixed(2));
+      db.collection('caja').doc(fechaHoyStr()).update({
+        cierre: monto,
+        cierreHora: firebase.firestore.FieldValue.serverTimestamp(),
+        efectivoEsperado: esperado,
+        diferencia
+      }).then(abrirCaja).catch(err=> alert('No se pudo guardar: ' + err.message));
+    });
+    return;
+  }
+
+  const esperado = data.efectivoEsperado !== undefined ? data.efectivoEsperado : (data.apertura + efectivoHoy);
+  const diferencia = data.diferencia !== undefined ? data.diferencia : (data.cierre - esperado);
+  const horaCierre = data.cierreHora && data.cierreHora.toDate
+    ? data.cierreHora.toDate().toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : '';
+  const difTxt = diferencia === 0 ? 'Cuadra exacto ✅' : (diferencia > 0 ? `Sobran $${diferencia} 🟡` : `Faltan $${Math.abs(diferencia)} 🔴`);
+  box.innerHTML = `
+    <p style="font-size:13px;">🔒 Caja ya cerrada por hoy${horaCierre ? ' a las ' + horaCierre : ''}.</p>
+    <p style="font-size:13px;">Apertura: <strong>$${data.apertura}</strong></p>
+    <p style="font-size:13px;">💵 Ventas en efectivo: <strong>$${efectivoHoy}</strong></p>
+    <p style="font-size:13px;">🧮 Esperado: <strong>$${esperado}</strong></p>
+    <p style="font-size:13px;">📦 Contado al cerrar: <strong>$${data.cierre}</strong></p>
+    <p style="font-size:14px;font-weight:800;">${difTxt}</p>
+  `;
+}
+
+function abrirCaja(){
+  document.getElementById('cajaFecha').textContent = fechaHoyStr();
+  document.getElementById('cajaContenido').innerHTML = 'Cargando...';
+  document.getElementById('cajaOverlay').classList.add('show');
+  db.collection('caja').doc(fechaHoyStr()).get()
+    .then(doc=> pintarCaja(doc.exists ? doc.data() : null))
+    .catch(err=>{ document.getElementById('cajaContenido').innerHTML = 'Error al cargar: ' + err.message; });
+}
+
+document.getElementById('cajaBtn').addEventListener('click', abrirCaja);
+document.getElementById('cajaCerrarModal').addEventListener('click', ()=>{
+  document.getElementById('cajaOverlay').classList.remove('show');
 });
 </script>
 </body>
