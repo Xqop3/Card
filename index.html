@@ -180,6 +180,11 @@
   .unit-label{
     font-family:'Lilita One',sans-serif;font-size:13px;color:var(--rojo);flex:0 0 auto;
   }
+  .unit-edit-btn{
+    flex:1;text-align:left;background:#fff;border:1.5px solid var(--rojo);border-radius:8px;
+    padding:9px 12px;font-weight:700;font-size:13px;color:var(--carbon);cursor:pointer;
+    font-family:'Mulish',sans-serif;
+  }
 
   .datos{padding:22px 20px 10px;}
   .datos h3{font-family:'Lilita One',sans-serif;font-size:19px;margin:0 0 12px;color:var(--rojo-2);}
@@ -411,6 +416,17 @@
 <div class="zoom-overlay" id="zoomOverlay" onclick="cerrarZoom()">
   <button class="zoom-close" onclick="cerrarZoom()">✕</button>
   <img id="zoomImg" src="" alt="">
+</div>
+
+<div class="admin-overlay" id="unitModalOverlay">
+  <div class="admin-box" style="max-width:380px;">
+    <h2 id="unitModalTitle" style="font-size:19px;"></h2>
+    <div id="unitModalBody"></div>
+    <div style="display:flex;gap:8px;margin-top:18px;">
+      <button type="button" class="admin-btn secondary" style="margin:0;flex:1;" onclick="cerrarUnitModal()">Cancelar</button>
+      <button type="button" class="admin-btn" style="margin:0;flex:1;" onclick="guardarUnitModal()">Guardar</button>
+    </div>
+  </div>
 </div>
 
 <div class="admin-overlay confirm-screen" id="confirmScreen">
@@ -767,29 +783,57 @@ function initState(){
 }
 initState();
 
-function unitSelectHTML(item, idx){
+function resumenUnit(item, u){
+  const partes = [];
+  if(item.typeChoice) partes.push(u.type);
+  if(item.proteinChoice) partes.push(u.protein);
+  if(item.sauceChoice) partes.push('🌶️ ' + u.sauce);
+  if(item.targetChoice) partes.push(u.target ? '🍔 ' + u.target : '¿para cuál platillo?');
+  return (partes.length ? partes.join(' · ') : 'Personalizar') + '  ✏️';
+}
+
+let unitModalCtx = { id:null, idx:null };
+
+function campoModal(etiqueta, selectId, opciones, actual){
+  return `<label style="display:block;font-weight:700;font-size:13px;margin:10px 0 5px;">${etiqueta}</label>
+    <select id="${selectId}" style="width:100%;padding:10px;border:1.5px solid var(--linea);border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;">` +
+    opciones.map(o=>`<option value="${o.value}" ${o.value===actual?'selected':''}>${o.label}</option>`).join('') +
+    `</select>`;
+}
+
+function abrirUnitModal(id, idx){
+  const item = findItem(id);
+  const u = state[id].units[idx];
+  unitModalCtx = { id, idx };
+  document.getElementById('unitModalTitle').textContent = `✏️ ${item.name} #${idx+1}`;
   let html = '';
-  if(item.typeChoice){
-    html += `<select onchange="state['${item.id}'].units[${idx}].type=this.value">` +
-      item.typeChoice.map(t=>`<option value="${t}">${t}</option>`).join('') + `</select>`;
-  }
-  if(item.proteinChoice){
-    html += `<select onchange="state['${item.id}'].units[${idx}].protein=this.value">` +
-      item.proteinChoice.map(p=>`<option value="${p}">${p}</option>`).join('') + `</select>`;
-  }
-  if(item.sauceChoice){
-    html += `<select onchange="state['${item.id}'].units[${idx}].sauce=this.value">` +
-      sauceOptions.map(s=>`<option value="${s}">${s}</option>`).join('') + `</select>`;
-  }
+  if(item.typeChoice) html += campoModal('Tipo', 'modalType', item.typeChoice.map(t=>({value:t,label:t})), u.type);
+  if(item.proteinChoice) html += campoModal('Proteína', 'modalProtein', item.proteinChoice.map(p=>({value:p,label:p})), u.protein);
+  if(item.sauceChoice) html += campoModal('Salsa', 'modalSauce', sauceOptions.map(s=>({value:s,label:s})), u.sauce);
   if(item.targetChoice){
-    const targets = getFoodTargets();
-    const current = state[item.id].units[idx].target || '';
-    html += `<select onchange="state['${item.id}'].units[${idx}].target=this.value">` +
-      `<option value="">¿Para cuál platillo?</option>` +
-      targets.map(t=>`<option value="${t}" ${t===current?'selected':''}>${t}</option>`).join('') +
-      `</select>`;
+    const opciones = [{value:'',label:'Sin especificar'}].concat(getFoodTargets().map(t=>({value:t,label:t})));
+    html += campoModal('¿Para cuál platillo?', 'modalTarget', opciones, u.target || '');
   }
-  return html;
+  document.getElementById('unitModalBody').innerHTML = html;
+  document.getElementById('unitModalOverlay').classList.add('show');
+}
+
+function cerrarUnitModal(){
+  document.getElementById('unitModalOverlay').classList.remove('show');
+  unitModalCtx = { id:null, idx:null };
+}
+
+function guardarUnitModal(){
+  const { id, idx } = unitModalCtx;
+  if(id === null || idx === null) return;
+  const item = findItem(id);
+  const u = state[id].units[idx];
+  if(item.typeChoice) u.type = document.getElementById('modalType').value;
+  if(item.proteinChoice) u.protein = document.getElementById('modalProtein').value;
+  if(item.sauceChoice) u.sauce = document.getElementById('modalSauce').value;
+  if(item.targetChoice) u.target = document.getElementById('modalTarget').value;
+  cerrarUnitModal();
+  renderUnits(id);
 }
 
 function renderUnits(id){
@@ -802,7 +846,7 @@ function renderUnits(id){
   box.innerHTML = units.map((u,idx)=>`
     <div class="unit-row">
       <span class="unit-label">#${idx+1}</span>
-      ${unitSelectHTML(item, idx)}
+      <button type="button" class="unit-edit-btn" onclick="abrirUnitModal('${id}', ${idx})">${resumenUnit(item, u)}</button>
     </div>
   `).join('');
 }

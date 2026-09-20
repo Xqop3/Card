@@ -69,7 +69,7 @@
 
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;padding:14px;}
   .modal-overlay.show{display:flex;}
-  .modal-box{background:#fff;border-radius:12px;padding:20px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;overflow-x:hidden;}
+  .modal-box{background:#fff;border-radius:12px;padding:20px;max-width:600px;width:100%;max-height:94vh;overflow-y:auto;overflow-x:hidden;}
   .modal-box select{max-width:100%;}
   .modal-box .edit-row > *, .modal-box > div > select, .modal-box > div > input, .modal-box > div > button{min-width:0;}
   .modal-box h3{margin-top:0;}
@@ -165,7 +165,6 @@
     <label style="font-size:12px;font-weight:700;">Agregar del menú</label>
     <div style="display:flex;gap:6px;margin:6px 0 12px;flex-wrap:wrap;">
       <select id="menuPickerSelect" style="flex:1 1 200px;min-width:0;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
-      <select id="menuPickerSalsa" style="flex:1 1 160px;min-width:0;display:none;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
       <input type="number" id="menuPickerCant" min="1" value="1" style="flex:0 0 55px;min-width:0;">
       <button type="button" id="menuPickerAddBtn" style="flex:0 0 90px;background:var(--azul);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Agregar</button>
     </div>
@@ -222,6 +221,17 @@
     <div id="cajaContenido"></div>
     <div class="modal-btns">
       <button class="btn-cancelar" id="cajaCerrarModal" type="button">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="salsaPickerOverlay">
+  <div class="modal-box" style="max-width:340px;">
+    <h3 id="salsaPickerTitulo">🌶️ Elige la salsa</h3>
+    <select id="salsaPickerSelect" style="width:100%;padding:10px;border:1.5px solid var(--linea);border-radius:8px;font-size:14px;margin-bottom:14px;"></select>
+    <div class="modal-btns">
+      <button class="btn-cancelar" id="salsaPickerCancelar" type="button">Cancelar</button>
+      <button class="btn-guardar" id="salsaPickerConfirmar" type="button">Agregar</button>
     </div>
   </div>
 </div>
@@ -300,21 +310,20 @@ function poblarMenuPicker(){
   });
   select.innerHTML = html;
   if(seleccionPrevia) select.value = seleccionPrevia;
-  actualizarMenuPickerSalsa();
 }
 
-function poblarMenuPickerSalsa(){
-  const select = document.getElementById('menuPickerSalsa');
-  if(!select) return;
-  select.innerHTML = SAUCE_OPTIONS.map(s=>`<option value="${s}">${s}</option>`).join('');
+let salsaPickerPendiente = null;
+
+function abrirSalsaPicker(nombre, precioUnitario, cantidad){
+  salsaPickerPendiente = { nombre, precioUnitario, cantidad };
+  document.getElementById('salsaPickerTitulo').textContent = `🌶️ Salsa para: ${nombre}`;
+  document.getElementById('salsaPickerSelect').innerHTML = SAUCE_OPTIONS.map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('salsaPickerOverlay').classList.add('show');
 }
 
-function actualizarMenuPickerSalsa(){
-  const select = document.getElementById('menuPickerSelect');
-  const salsaSelect = document.getElementById('menuPickerSalsa');
-  if(!select || !salsaSelect) return;
-  const opt = select.options[select.selectedIndex];
-  salsaSelect.style.display = (opt && opt.dataset.sauce) ? 'block' : 'none';
+function cerrarSalsaPicker(){
+  document.getElementById('salsaPickerOverlay').classList.remove('show');
+  salsaPickerPendiente = null;
 }
 
 function conectarSettings(){
@@ -807,20 +816,19 @@ document.getElementById('nuevoManualBtn').addEventListener('click', ()=>{
   document.getElementById('manualOverlay').classList.add('show');
 });
 
-document.getElementById('menuPickerSelect').addEventListener('change', actualizarMenuPickerSalsa);
-
 document.getElementById('menuPickerAddBtn').addEventListener('click', ()=>{
   const select = document.getElementById('menuPickerSelect');
   const opt = select.options[select.selectedIndex];
   if(!opt){ alert('No hay productos disponibles.'); return; }
   if(opt.disabled){ alert('Ese producto está marcado como agotado hoy.'); return; }
   const precioUnitario = Number(opt.dataset.price) || 0;
-  let nombre = opt.dataset.name || opt.textContent;
-  if(opt.dataset.sauce){
-    const salsa = document.getElementById('menuPickerSalsa').value;
-    nombre += ` (salsa: ${salsa})`;
-  }
+  const nombre = opt.dataset.name || opt.textContent;
   const cantidad = Math.max(1, Number(document.getElementById('menuPickerCant').value) || 1);
+
+  if(opt.dataset.sauce){
+    abrirSalsaPicker(nombre, precioUnitario, cantidad);
+    return;
+  }
   document.getElementById('manualRows').appendChild(
     filaEditor({ cantidad, nombre, precio: precioUnitario * cantidad }, recalcularManual)
   );
@@ -828,7 +836,19 @@ document.getElementById('menuPickerAddBtn').addEventListener('click', ()=>{
   recalcularManual();
 });
 
-poblarMenuPickerSalsa();
+document.getElementById('salsaPickerCancelar').addEventListener('click', cerrarSalsaPicker);
+
+document.getElementById('salsaPickerConfirmar').addEventListener('click', ()=>{
+  if(!salsaPickerPendiente) return;
+  const { nombre, precioUnitario, cantidad } = salsaPickerPendiente;
+  const salsa = document.getElementById('salsaPickerSelect').value;
+  document.getElementById('manualRows').appendChild(
+    filaEditor({ cantidad, nombre: `${nombre} (salsa: ${salsa})`, precio: precioUnitario * cantidad }, recalcularManual)
+  );
+  document.getElementById('menuPickerCant').value = 1;
+  recalcularManual();
+  cerrarSalsaPicker();
+});
 
 document.getElementById('manualCancelar').addEventListener('click', ()=>{
   document.getElementById('manualOverlay').classList.remove('show');
