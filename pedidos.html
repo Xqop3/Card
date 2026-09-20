@@ -191,6 +191,12 @@
       <label><input type="radio" name="manualPago" value="Tarjeta"> Tarjeta</label>
     </div>
 
+    <div id="manualCambioBox" style="margin-bottom:10px;">
+      <label style="font-size:12px;font-weight:700;">¿Con cuánto paga? (déjalo vacío si paga exacto)</label>
+      <input type="number" id="manualMontoPagado" min="0" placeholder="Ej. 200" style="width:100%;">
+      <div id="manualCambioTxt" style="font-size:12.5px;font-weight:700;color:var(--verde);margin-top:4px;"></div>
+    </div>
+
     <label style="font-size:12px;font-weight:700;">Estado</label>
     <select id="manualEstado" style="width:100%;margin-bottom:10px;padding:7px;border:1.5px solid var(--linea);border-radius:6px;">
       <option value="entregado" selected>Ya entregado (venta directa en mostrador)</option>
@@ -724,10 +730,33 @@ function recalcularManual(){
   const total = Math.max(0, subtotal + envio - descuento);
   document.getElementById('manualSubtotal').textContent = '$' + subtotal;
   document.getElementById('manualTotalFinal').textContent = total;
+  actualizarCajaCambio();
 }
 
 document.getElementById('manualEnvio').addEventListener('input', recalcularManual);
 document.getElementById('manualDescuento').addEventListener('input', recalcularManual);
+
+function actualizarCajaCambio(){
+  const esEfectivo = document.querySelector('input[name="manualPago"]:checked').value === 'Efectivo';
+  document.getElementById('manualCambioBox').style.display = esEfectivo ? 'block' : 'none';
+  const total = Number(document.getElementById('manualTotalFinal').textContent) || 0;
+  const montoRaw = document.getElementById('manualMontoPagado').value.trim();
+  const txt = document.getElementById('manualCambioTxt');
+  if(!esEfectivo || montoRaw === ''){ txt.textContent = ''; return; }
+  const monto = Number(montoRaw);
+  if(isNaN(monto)){ txt.textContent = ''; return; }
+  if(monto >= total){
+    txt.style.color = 'var(--verde)';
+    txt.textContent = `Cambio a entregar: $${(monto - total).toFixed(2).replace(/\.00$/,'')}`;
+  } else {
+    txt.style.color = 'var(--rojo-2)';
+    txt.textContent = '⚠️ No alcanza a cubrir el total';
+  }
+}
+document.querySelectorAll('input[name="manualPago"]').forEach(radio=>{
+  radio.addEventListener('change', actualizarCajaCambio);
+});
+document.getElementById('manualMontoPagado').addEventListener('input', actualizarCajaCambio);
 
 document.getElementById('manualAddRow').addEventListener('click', ()=>{
   document.getElementById('manualRows').appendChild(filaEditor({cantidad:1, nombre:'', precio:0}, recalcularManual));
@@ -742,6 +771,7 @@ document.getElementById('nuevoManualBtn').addEventListener('click', ()=>{
   document.getElementById('manualNotas').value = '';
   document.getElementById('manualEstado').value = 'entregado';
   document.getElementById('menuPickerCant').value = 1;
+  document.getElementById('manualMontoPagado').value = '';
   document.querySelector('input[name="manualPago"][value="Efectivo"]').checked = true;
   poblarMenuPicker();
   recalcularManual();
@@ -786,13 +816,34 @@ document.getElementById('manualGuardar').addEventListener('click', ()=>{
   const pago = document.querySelector('input[name="manualPago"]:checked').value;
   const estado = document.getElementById('manualEstado').value;
 
+  let cambioTxt = '';
+  let montoPagado = null;
+  let vuelto = null;
+  if(pago === 'Efectivo'){
+    const montoRaw = document.getElementById('manualMontoPagado').value.trim();
+    if(montoRaw !== ''){
+      const montoNum = Number(montoRaw);
+      if(!isNaN(montoNum) && montoNum > 0){
+        montoPagado = montoNum;
+        if(montoNum >= total){
+          vuelto = Number((montoNum - total).toFixed(2));
+          cambioTxt = `Paga con $${montoNum}`;
+        } else {
+          cambioTxt = `Paga con $${montoNum} — ¡no alcanza a cubrir el total!`;
+        }
+      }
+    } else {
+      cambioTxt = 'Exacto';
+    }
+  }
+
   const btn = document.getElementById('manualGuardar');
   btn.disabled = true;
   btn.textContent = 'Guardando...';
 
   db.collection('pedidos').add({
     nombre, telefono:'', entrega:'Recoger en tienda', referencia:'', ubicacion:null,
-    pago, cambioTxt:'', montoPagado:null, vuelto:null, notas,
+    pago, cambioTxt, montoPagado, vuelto, notas,
     items, subtotal, envioFee, descuento, total,
     estado, origen:'mostrador',
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
