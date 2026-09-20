@@ -69,7 +69,9 @@
 
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;padding:14px;}
   .modal-overlay.show{display:flex;}
-  .modal-box{background:#fff;border-radius:12px;padding:20px;max-width:420px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal-box{background:#fff;border-radius:12px;padding:20px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;overflow-x:hidden;}
+  .modal-box select{max-width:100%;}
+  .modal-box .edit-row > *, .modal-box > div > select, .modal-box > div > input, .modal-box > div > button{min-width:0;}
   .modal-box h3{margin-top:0;}
   .edit-row{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
   .edit-row input[type="text"]{flex:2;}
@@ -161,9 +163,9 @@
     <h3>🧾 Pedido de mostrador</h3>
 
     <label style="font-size:12px;font-weight:700;">Agregar del menú</label>
-    <div style="display:flex;gap:6px;margin:6px 0 12px;">
-      <select id="menuPickerSelect" style="flex:2;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
-      <input type="number" id="menuPickerCant" min="1" value="1" style="flex:0 0 55px;">
+    <div style="display:flex;gap:6px;margin:6px 0 12px;flex-wrap:wrap;">
+      <select id="menuPickerSelect" style="flex:1 1 200px;min-width:0;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
+      <input type="number" id="menuPickerCant" min="1" value="1" style="flex:0 0 55px;min-width:0;">
       <button type="button" id="menuPickerAddBtn" style="flex:0 0 90px;background:var(--azul);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Agregar</button>
     </div>
 
