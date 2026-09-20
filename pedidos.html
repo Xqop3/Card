@@ -349,13 +349,25 @@ let pedidosCache = {};
 function pitido(){
   try{
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.25);
+    const notas = [
+      {f:1046, t:0.00, d:0.18},
+      {f:1318, t:0.22, d:0.18},
+      {f:1046, t:0.44, d:0.18},
+      {f:1318, t:0.66, d:0.18},
+      {f:1568, t:0.90, d:0.45}
+    ];
+    notas.forEach(nota=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = nota.f;
+      const inicio = ctx.currentTime + nota.t;
+      gain.gain.setValueAtTime(0.4, inicio);
+      gain.gain.exponentialRampToValueAtTime(0.001, inicio + nota.d);
+      osc.start(inicio);
+      osc.stop(inicio + nota.d + 0.02);
+    });
   }catch(e){}
 }
 
