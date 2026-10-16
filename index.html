@@ -99,6 +99,7 @@
     color:#fff;
     font-family:'Lilita One',sans-serif;font-size:20px;
     padding:22px 20px;margin-top:26px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
   }
   .sec-head::before{
     content:"";position:absolute;inset:0;background:rgba(242,141,36,0.62);
@@ -111,10 +112,16 @@
     font-weight:800;font-size:13px;letter-spacing:0.3px;
   }
   .temporada-banner.show{display:block;}
-  .temporada-deco{
-    position:fixed;pointer-events:none;z-index:5;user-select:none;
-    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35));
-    line-height:1;
+  .header-deco-box{position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden;}
+  .header-deco{
+    position:absolute;pointer-events:none;user-select:none;line-height:1;
+    filter:drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+  }
+  .sec-stamp{
+    position:relative;z-index:1;flex:0 0 auto;
+    font-size:30px;line-height:1;pointer-events:none;user-select:none;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+    transform:rotate(10deg);
   }
 
   .items{padding:6px 16px 4px;}
@@ -334,6 +341,7 @@
 <div class="wrap" id="wrap">
 
   <header>
+    <div class="header-deco-box" id="headerDeco"></div>
     <h1 id="mainTitle"><img class="logo-img" src="assets/logo-white.png" alt="Happy Burger"></h1>
     <div class="sub">arma tu pedido y gana mientras comes 🍔💰</div>
     <div class="info">
@@ -344,7 +352,6 @@
   </header>
 
   <div class="temporada-banner" id="temporadaBanner"></div>
-  <div id="temporadaDecoracion"></div>
 
   <div id="menu"></div>
 
@@ -569,153 +576,132 @@ let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:
 
 const TEMPORADAS = {
   anonuevo: {
-    texto:'🎉 ¡Feliz Año Nuevo! 🥂', color:'#1d2b53',
-    deco: [
-      {emoji:'🎆', style:'top:8px;left:4px;font-size:40px;'},
-      {emoji:'🥂', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'✨', style:'top:40vh;left:4px;font-size:22px;'},
-      {emoji:'✨', style:'top:44vh;right:6px;font-size:20px;'},
-      {emoji:'🎊', style:'bottom:84px;left:10px;font-size:30px;'}
+    texto:'🎉 ¡Feliz Año Nuevo! 🥂', color:'#1d2b53', stamp:'🎆',
+    header: [
+      {emoji:'🎆', style:'top:6px;left:2px;font-size:52px;transform:rotate(-6deg);'},
+      {emoji:'🥂', style:'top:10px;right:6px;font-size:46px;transform:rotate(8deg);'}
     ]
   },
   reyes: {
-    texto:'👑 Feliz Día de Reyes 👑', color:'#6b3fa0',
-    deco: [
-      {emoji:'👑', style:'top:8px;left:6px;font-size:38px;'},
-      {emoji:'🐫', style:'top:6px;right:4px;font-size:38px;'},
-      {emoji:'⭐', style:'top:40vh;left:6px;font-size:22px;'},
-      {emoji:'🍞', style:'bottom:84px;right:10px;font-size:30px;'}
+    texto:'👑 Feliz Día de Reyes 👑', color:'#6b3fa0', stamp:'👑',
+    header: [
+      {emoji:'👑', style:'top:6px;left:4px;font-size:50px;transform:rotate(-6deg);'},
+      {emoji:'🐫', style:'top:10px;right:2px;font-size:50px;transform:rotate(6deg);'}
     ]
   },
   candelaria: {
-    texto:'🕯️ Feliz Día de la Candelaria 🫔', color:'#2a7fb8',
-    deco: [
-      {emoji:'🕯️', style:'top:8px;left:6px;font-size:36px;'},
-      {emoji:'🫔', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🕯️', style:'bottom:84px;left:10px;font-size:28px;'}
+    texto:'🕯️ Feliz Día de la Candelaria 🫔', color:'#2a7fb8', stamp:'🕯️',
+    header: [
+      {emoji:'🕯️', style:'top:8px;left:6px;font-size:48px;'},
+      {emoji:'🫔', style:'top:8px;right:6px;font-size:48px;'}
     ]
   },
   amor: {
-    texto:'💘 San Valentín 💘', color:'#b4184a',
-    deco: [
-      {emoji:'💘', style:'top:8px;left:8px;font-size:34px;'},
-      {emoji:'🌹', style:'top:6px;right:8px;font-size:34px;'},
-      {emoji:'💌', style:'bottom:84px;right:10px;font-size:28px;'}
+    texto:'💘 San Valentín 💘', color:'#b4184a', stamp:'🌹',
+    header: [
+      {emoji:'💘', style:'top:8px;left:8px;font-size:46px;transform:rotate(-8deg);'},
+      {emoji:'🌹', style:'top:8px;right:8px;font-size:46px;transform:rotate(8deg);'}
     ]
   },
   diabandera: {
-    texto:'🇲🇽 Día de la Bandera 🇲🇽', color:'#1b6b3a',
-    deco: [
-      {emoji:'🇲🇽', style:'top:8px;left:6px;font-size:36px;'},
-      {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🦅', style:'bottom:84px;left:8px;font-size:30px;'}
+    texto:'🇲🇽 Día de la Bandera 🇲🇽', color:'#1b6b3a', stamp:'🇲🇽',
+    header: [
+      {emoji:'🇲🇽', style:'top:8px;left:6px;font-size:46px;'},
+      {emoji:'🦅', style:'top:8px;right:6px;font-size:46px;'}
     ]
   },
   pascua: {
-    texto:'🐣 Feliz Pascua 🐰', color:'#4f9b3d',
-    deco: [
-      {emoji:'🐰', style:'top:8px;left:6px;font-size:36px;'},
-      {emoji:'🐣', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🌷', style:'top:40vh;left:6px;font-size:22px;'},
-      {emoji:'🥚', style:'bottom:84px;right:10px;font-size:28px;'}
+    texto:'🐣 Feliz Pascua 🐰', color:'#4f9b3d', stamp:'🐰',
+    header: [
+      {emoji:'🐰', style:'top:8px;left:6px;font-size:48px;'},
+      {emoji:'🐣', style:'top:8px;right:6px;font-size:48px;'}
     ]
   },
   ninos: {
-    texto:'🎈 Feliz Día del Niño 🧸', color:'#e0457b',
-    deco: [
-      {emoji:'🎈', style:'top:8px;left:6px;font-size:38px;'},
-      {emoji:'🧸', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🪁', style:'top:40vh;left:6px;font-size:24px;'},
-      {emoji:'🎈', style:'bottom:84px;right:10px;font-size:28px;'}
+    texto:'🎈 Feliz Día del Niño 🧸', color:'#e0457b', stamp:'🎈',
+    header: [
+      {emoji:'🎈', style:'top:6px;left:6px;font-size:50px;transform:rotate(-6deg);'},
+      {emoji:'🧸', style:'top:10px;right:6px;font-size:46px;transform:rotate(6deg);'}
     ]
   },
   cincodemayo: {
-    texto:'🎺 ¡Feliz 5 de Mayo! 🌮', color:'#2f7d32',
-    deco: [
-      {emoji:'🎺', style:'top:8px;left:6px;font-size:36px;'},
-      {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🌮', style:'bottom:84px;left:10px;font-size:30px;'}
+    texto:'🎺 ¡Feliz 5 de Mayo! 🌮', color:'#2f7d32', stamp:'🌮',
+    header: [
+      {emoji:'🎺', style:'top:8px;left:4px;font-size:48px;transform:rotate(-10deg);'},
+      {emoji:'🌮', style:'top:10px;right:6px;font-size:46px;transform:rotate(8deg);'}
     ]
   },
   madres: {
-    texto:'💐 Feliz Día de las Madres 💐', color:'#d6336c',
-    deco: [
-      {emoji:'💐', style:'top:8px;left:6px;font-size:38px;'},
-      {emoji:'🌸', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🌷', style:'top:40vh;left:6px;font-size:22px;'},
-      {emoji:'💐', style:'bottom:84px;right:10px;font-size:28px;'}
+    texto:'💐 Feliz Día de las Madres 💐', color:'#d6336c', stamp:'💐',
+    header: [
+      {emoji:'💐', style:'top:6px;left:4px;font-size:50px;transform:rotate(-6deg);'},
+      {emoji:'🌸', style:'top:10px;right:8px;font-size:44px;transform:rotate(6deg);'}
     ]
   },
   maestro: {
-    texto:'🍎 Feliz Día del Maestro 📚', color:'#1565c0',
-    deco: [
-      {emoji:'🍎', style:'top:8px;left:6px;font-size:36px;'},
-      {emoji:'📚', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🖊️', style:'bottom:84px;left:10px;font-size:28px;'}
+    texto:'🍎 Feliz Día del Maestro 📚', color:'#1565c0', stamp:'🍎',
+    header: [
+      {emoji:'🍎', style:'top:8px;left:8px;font-size:46px;'},
+      {emoji:'📚', style:'top:8px;right:6px;font-size:46px;'}
     ]
   },
   padre: {
-    texto:'👔 Feliz Día del Padre 🎣', color:'#2c3e78',
-    deco: [
-      {emoji:'👔', style:'top:8px;left:6px;font-size:36px;'},
-      {emoji:'🎣', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🧢', style:'bottom:84px;right:10px;font-size:28px;'}
+    texto:'👔 Feliz Día del Padre 🎣', color:'#2c3e78', stamp:'🎣',
+    header: [
+      {emoji:'👔', style:'top:8px;left:8px;font-size:46px;'},
+      {emoji:'🎣', style:'top:8px;right:4px;font-size:48px;transform:rotate(10deg);'}
     ]
   },
   independencia: {
-    texto:'🎉 ¡Viva México! 🎉', color:'#1b6b3a',
-    deco: [
-      {emoji:'🎉', style:'top:8px;left:6px;font-size:36px;'},
-      {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🎊', style:'bottom:84px;left:10px;font-size:30px;'},
-      {emoji:'🎊', style:'bottom:84px;right:10px;font-size:30px;transform:scaleX(-1);'}
+    texto:'🎉 ¡Viva México! 🎉', color:'#1b6b3a', stamp:'🎉',
+    header: [
+      {emoji:'🎉', style:'top:6px;left:6px;font-size:48px;transform:rotate(-8deg);'},
+      {emoji:'🇲🇽', style:'top:8px;right:6px;font-size:46px;transform:rotate(8deg);'}
     ]
   },
   hanalpixan: {
-    texto:'💀 🕯️ Hanal Pixán 🕯️ 💀', color:'#5b2a86',
-    deco: [
-      {emoji:'🕸️', style:'top:8px;left:4px;font-size:42px;transform:rotate(-8deg);'},
-      {emoji:'🕸️', style:'top:8px;right:4px;font-size:42px;transform:rotate(8deg) scaleX(-1);'},
-      {emoji:'💀', style:'top:40vh;left:2px;font-size:26px;transform:rotate(-10deg);'},
-      {emoji:'🌼', style:'top:44vh;right:2px;font-size:24px;transform:rotate(10deg);'},
-      {emoji:'🧟', style:'bottom:84px;left:8px;font-size:32px;'},
-      {emoji:'🕯️', style:'bottom:84px;right:10px;font-size:28px;'}
+    texto:'💀 🕯️ Hanal Pixán 🕯️ 💀', color:'#5b2a86', stamp:'💀',
+    header: [
+      {emoji:'🕸️', style:'top:0px;left:0px;font-size:60px;transform:rotate(-8deg);'},
+      {emoji:'🕸️', style:'top:0px;right:0px;font-size:60px;transform:rotate(8deg) scaleX(-1);'}
     ]
   },
   revolucion: {
-    texto:'🎺 Feliz Día de la Revolución 🐴', color:'#7a2e2e',
-    deco: [
-      {emoji:'🎺', style:'top:8px;left:6px;font-size:36px;'},
-      {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
-      {emoji:'🐴', style:'bottom:84px;left:10px;font-size:28px;'}
+    texto:'🎺 Feliz Día de la Revolución 🐴', color:'#7a2e2e', stamp:'🎺',
+    header: [
+      {emoji:'🎺', style:'top:8px;left:4px;font-size:48px;transform:rotate(-10deg);'},
+      {emoji:'🐴', style:'top:8px;right:6px;font-size:46px;transform:rotate(6deg);'}
     ]
   },
   navidad: {
-    texto:'🎄 ❄️ Feliz Navidad ❄️ 🎄', color:'#1b6b3a',
-    deco: [
-      {emoji:'🎄', style:'top:8px;left:4px;font-size:42px;'},
-      {emoji:'🎅', style:'top:4px;right:2px;font-size:40px;'},
-      {emoji:'❄️', style:'top:40vh;left:4px;font-size:22px;'},
-      {emoji:'❄️', style:'top:44vh;right:6px;font-size:20px;'},
-      {emoji:'🎁', style:'bottom:84px;left:10px;font-size:30px;'},
-      {emoji:'🔔', style:'bottom:84px;right:10px;font-size:28px;'}
+    texto:'🎄 ❄️ Feliz Navidad ❄️ 🎄', color:'#1b6b3a', stamp:'🎄',
+    header: [
+      {emoji:'🎄', style:'top:4px;left:2px;font-size:54px;'},
+      {emoji:'🎅', style:'top:2px;right:0px;font-size:52px;'}
     ]
   }
 };
 
 function pintarTemporada(){
   const el = document.getElementById('temporadaBanner');
-  const decoCont = document.getElementById('temporadaDecoracion');
+  const headerDeco = document.getElementById('headerDeco');
   const t = TEMPORADAS[cfg.temporada];
   if(!t){
     el.classList.remove('show');
-    decoCont.innerHTML = '';
+    headerDeco.innerHTML = '';
     return;
   }
   el.textContent = t.texto;
   el.style.background = t.color;
   el.classList.add('show');
-  decoCont.innerHTML = t.deco.map(d=>`<span class="temporada-deco" style="${d.style}">${d.emoji}</span>`).join('');
+  headerDeco.innerHTML = t.header.map(d=>`<span class="header-deco" style="${d.style}">${d.emoji}</span>`).join('');
+  render();
+  syncCartDisplay();
+}
+
+function decoSeccion(){
+  const t = TEMPORADAS[cfg.temporada];
+  return t ? `<span class="sec-stamp">${t.stamp}</span>` : '';
 }
 let happyCardSaldo = 0;
 let happyCardDescuentoAplicado = 0;
@@ -1023,7 +1009,7 @@ function render(){
   for(const sec in menu){
     const bgUrl = secBanners[sec] ? IMG[secBanners[sec]] : secBannersExtra[sec];
     const bg = bgUrl ? ` style="background-image:url('${bgUrl}')"` : '';
-    out += `<div class="sec-head"${bg}><span>${sec}</span></div>`;
+    out += `<div class="sec-head"${bg}><span>${sec}</span>${decoSeccion()}</div>`;
     if(secNotes[sec]) out += `<span class="sec-note">${secNotes[sec]}</span>`;
     out += `<div class="items">`;
     menu[sec].forEach(item=>{
