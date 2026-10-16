@@ -222,7 +222,10 @@
 
 <div class="modal-overlay" id="cajaOverlay">
   <div class="modal-box">
-    <h3>💰 Corte de caja — <span id="cajaFecha"></span></h3>
+    <h3 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+      <span>💰 Corte de caja — <span id="cajaFecha"></span></span>
+      <button type="button" id="cajaHistorialBtn" style="background:var(--azul);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">📅 Historial</button>
+    </h3>
     <div id="cajaContenido"></div>
     <div class="modal-btns">
       <button class="btn-cancelar" id="cajaCerrarModal" type="button">Cerrar</button>
@@ -944,17 +947,113 @@ function ventasEfectivoHoy(){
   return total;
 }
 
+function totalArray(arr, campo){
+  return (arr || []).reduce((sum, e)=> sum + (Number(e[campo]) || 0), 0);
+}
+
+function horaDeTimestamp(ts){
+  return ts && ts.toDate ? ts.toDate().toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : '';
+}
+
+function renderListaRegistros(tipo, lista){
+  if(!lista || lista.length === 0) return '<p style="font-size:12px;color:#8a7f6c;margin:4px 0 8px;">Sin registros todavía.</p>';
+  return '<div style="max-height:130px;overflow-y:auto;margin-bottom:8px;">' + lista.map((e,idx)=>{
+    const etiqueta = tipo === 'didi' ? (e.nota || 'Pedido Didi') : (e.concepto || 'Gasto');
+    const hora = horaDeTimestamp(e.hora);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--linea);">
+      <span>${etiqueta}${hora ? ' · ' + hora : ''}</span>
+      <span style="display:flex;align-items:center;gap:6px;">
+        <strong>$${e.monto}</strong>
+        <button type="button" class="btn-quitar-registro" data-tipo="${tipo}" data-idx="${idx}" style="background:none;border:none;color:var(--rojo-2);font-weight:800;cursor:pointer;font-size:14px;">✕</button>
+      </span>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function bloqueDidiGastos(data){
+  const didi = (data && data.didi) || [];
+  const gastos = (data && data.gastos) || [];
+  return `
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button type="button" id="toggleDidiBtn" style="flex:1;background:#25D366;color:#fff;border:none;border-radius:8px;padding:9px;font-weight:800;font-size:12.5px;cursor:pointer;">🛵 Didi ($${totalArray(didi,'monto')})</button>
+      <button type="button" id="toggleGastosBtn" style="flex:1;background:#6c5ce7;color:#fff;border:none;border-radius:8px;padding:9px;font-weight:800;font-size:12.5px;cursor:pointer;">🧾 Gastos ($${totalArray(gastos,'monto')})</button>
+    </div>
+    <div id="didiPanel" style="display:none;background:#f3f3f3;border-radius:8px;padding:10px;margin-bottom:10px;">
+      <div style="font-size:11.5px;color:#8a7f6c;margin-bottom:6px;">Pedidos de Didi pagados en efectivo que no están en el sistema — súmalos aquí para que cuadre la caja.</div>
+      ${renderListaRegistros('didi', didi)}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <input type="number" id="didiMontoInput" placeholder="Monto" min="0" style="flex:1 1 80px;padding:7px;border:1.5px solid var(--linea);border-radius:6px;">
+        <input type="text" id="didiNotaInput" placeholder="Nota (opcional)" style="flex:2 1 120px;padding:7px;border:1.5px solid var(--linea);border-radius:6px;">
+        <button type="button" id="didiAddBtn" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-weight:800;cursor:pointer;">+ Agregar</button>
+      </div>
+    </div>
+    <div id="gastosPanel" style="display:none;background:#f3f3f3;border-radius:8px;padding:10px;margin-bottom:10px;">
+      <div style="font-size:11.5px;color:#8a7f6c;margin-bottom:6px;">Dinero que salió de la caja hoy (cena, refresco, materia prima, etc.) — se resta del efectivo esperado.</div>
+      ${renderListaRegistros('gastos', gastos)}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <input type="text" id="gastoConceptoInput" placeholder="¿En qué?" style="flex:2 1 120px;padding:7px;border:1.5px solid var(--linea);border-radius:6px;">
+        <input type="number" id="gastoMontoInput" placeholder="Monto" min="0" style="flex:1 1 80px;padding:7px;border:1.5px solid var(--linea);border-radius:6px;">
+        <button type="button" id="gastoAddBtn" style="background:#6c5ce7;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-weight:800;cursor:pointer;">+ Agregar</button>
+      </div>
+    </div>
+  `;
+}
+
+function guardarArrayCaja(campo, nuevoArray){
+  return db.collection('caja').doc(fechaHoyStr()).set({ [campo]: nuevoArray }, { merge: true });
+}
+
+function conectarDidiGastos(data){
+  document.getElementById('toggleDidiBtn').addEventListener('click', ()=>{
+    document.getElementById('didiPanel').style.display =
+      document.getElementById('didiPanel').style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('toggleGastosBtn').addEventListener('click', ()=>{
+    document.getElementById('gastosPanel').style.display =
+      document.getElementById('gastosPanel').style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('didiAddBtn').addEventListener('click', ()=>{
+    const monto = Number(document.getElementById('didiMontoInput').value);
+    if(isNaN(monto) || monto <= 0){ alert('Ingresa un monto válido.'); return; }
+    const nota = document.getElementById('didiNotaInput').value.trim();
+    const arr = ((data && data.didi) || []).slice();
+    arr.push({ monto, nota, hora: firebase.firestore.Timestamp.now() });
+    guardarArrayCaja('didi', arr).then(abrirCaja).catch(err=> alert('No se pudo guardar: ' + err.message));
+  });
+  document.getElementById('gastoAddBtn').addEventListener('click', ()=>{
+    const monto = Number(document.getElementById('gastoMontoInput').value);
+    if(isNaN(monto) || monto <= 0){ alert('Ingresa un monto válido.'); return; }
+    const concepto = document.getElementById('gastoConceptoInput').value.trim();
+    if(!concepto){ alert('Dinos en qué se gastó.'); return; }
+    const arr = ((data && data.gastos) || []).slice();
+    arr.push({ monto, concepto, hora: firebase.firestore.Timestamp.now() });
+    guardarArrayCaja('gastos', arr).then(abrirCaja).catch(err=> alert('No se pudo guardar: ' + err.message));
+  });
+  document.querySelectorAll('.btn-quitar-registro').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const tipo = btn.dataset.tipo;
+      const idx = Number(btn.dataset.idx);
+      const arr = ((data && data[tipo]) || []).slice();
+      arr.splice(idx, 1);
+      guardarArrayCaja(tipo, arr).then(abrirCaja).catch(err=> alert('No se pudo quitar: ' + err.message));
+    });
+  });
+}
+
 function pintarCaja(data){
   const box = document.getElementById('cajaContenido');
   const efectivoHoy = ventasEfectivoHoy();
+  const totalDidi = totalArray(data && data.didi, 'monto');
+  const totalGastos = totalArray(data && data.gastos, 'monto');
 
   if(!data || data.apertura === undefined || data.apertura === null){
-    box.innerHTML = `
+    box.innerHTML = bloqueDidiGastos(data) + `
       <p style="font-size:13px;">Aún no se ha registrado la apertura de caja de hoy.</p>
       <label style="font-size:12px;font-weight:700;">Monto con el que se abre la caja</label>
       <input type="number" id="cajaAperturaInput" min="0" style="width:100%;margin-bottom:10px;" placeholder="Ej. 500">
       <button class="btn-guardar" id="cajaAbrirBtn" type="button" style="width:100%;">Abrir caja</button>
     `;
+    conectarDidiGastos(data);
     document.getElementById('cajaAbrirBtn').addEventListener('click', ()=>{
       const monto = Number(document.getElementById('cajaAperturaInput').value);
       if(isNaN(monto) || monto < 0){ alert('Ingresa un monto válido.'); return; }
@@ -962,23 +1061,26 @@ function pintarCaja(data){
         apertura: monto,
         aperturaHora: firebase.firestore.FieldValue.serverTimestamp(),
         cierre: null, cierreHora: null
-      }).then(abrirCaja).catch(err=> alert('No se pudo guardar: ' + err.message));
+      }, { merge: true }).then(abrirCaja).catch(err=> alert('No se pudo guardar: ' + err.message));
     });
     return;
   }
 
   if(data.cierre === undefined || data.cierre === null){
-    const esperado = data.apertura + efectivoHoy;
+    const esperado = data.apertura + efectivoHoy + totalDidi - totalGastos;
     const horaApertura = data.aperturaHora && data.aperturaHora.toDate
       ? data.aperturaHora.toDate().toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : '';
-    box.innerHTML = `
+    box.innerHTML = bloqueDidiGastos(data) + `
       <p style="font-size:13px;">🟢 Caja abierta con <strong>$${data.apertura}</strong>${horaApertura ? ' a las ' + horaApertura : ''}.</p>
       <p style="font-size:13px;">💵 Ventas en efectivo de hoy: <strong>$${efectivoHoy}</strong></p>
+      ${totalDidi > 0 ? `<p style="font-size:13px;">🛵 Didi en efectivo: <strong>$${totalDidi}</strong></p>` : ''}
+      ${totalGastos > 0 ? `<p style="font-size:13px;">🧾 Gastos del día: <strong>-$${totalGastos}</strong></p>` : ''}
       <p style="font-size:13px;">🧮 Efectivo esperado en caja: <strong>$${esperado}</strong></p>
       <label style="font-size:12px;font-weight:700;">Monto contado al cerrar</label>
       <input type="number" id="cajaCierreInput" min="0" style="width:100%;margin-bottom:10px;" placeholder="Ej. 950">
       <button class="btn-guardar" id="cajaCerrarBtn" type="button" style="width:100%;">Cerrar caja</button>
     `;
+    conectarDidiGastos(data);
     document.getElementById('cajaCerrarBtn').addEventListener('click', ()=>{
       const monto = Number(document.getElementById('cajaCierreInput').value);
       if(isNaN(monto) || monto < 0){ alert('Ingresa un monto válido.'); return; }
@@ -993,19 +1095,22 @@ function pintarCaja(data){
     return;
   }
 
-  const esperado = data.efectivoEsperado !== undefined ? data.efectivoEsperado : (data.apertura + efectivoHoy);
+  const esperado = data.efectivoEsperado !== undefined ? data.efectivoEsperado : (data.apertura + efectivoHoy + totalDidi - totalGastos);
   const diferencia = data.diferencia !== undefined ? data.diferencia : (data.cierre - esperado);
   const horaCierre = data.cierreHora && data.cierreHora.toDate
     ? data.cierreHora.toDate().toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : '';
   const difTxt = diferencia === 0 ? 'Cuadra exacto ✅' : (diferencia > 0 ? `Sobran $${diferencia} 🟡` : `Faltan $${Math.abs(diferencia)} 🔴`);
-  box.innerHTML = `
+  box.innerHTML = bloqueDidiGastos(data) + `
     <p style="font-size:13px;">🔒 Caja ya cerrada por hoy${horaCierre ? ' a las ' + horaCierre : ''}.</p>
     <p style="font-size:13px;">Apertura: <strong>$${data.apertura}</strong></p>
     <p style="font-size:13px;">💵 Ventas en efectivo: <strong>$${efectivoHoy}</strong></p>
+    ${totalDidi > 0 ? `<p style="font-size:13px;">🛵 Didi en efectivo: <strong>$${totalDidi}</strong></p>` : ''}
+    ${totalGastos > 0 ? `<p style="font-size:13px;">🧾 Gastos del día: <strong>-$${totalGastos}</strong></p>` : ''}
     <p style="font-size:13px;">🧮 Esperado: <strong>$${esperado}</strong></p>
     <p style="font-size:13px;">📦 Contado al cerrar: <strong>$${data.cierre}</strong></p>
     <p style="font-size:14px;font-weight:800;">${difTxt}</p>
   `;
+  conectarDidiGastos(data);
 }
 
 function abrirCaja(){
@@ -1017,7 +1122,37 @@ function abrirCaja(){
     .catch(err=>{ document.getElementById('cajaContenido').innerHTML = 'Error al cargar: ' + err.message; });
 }
 
+function verHistorialCaja(){
+  document.getElementById('cajaContenido').innerHTML = 'Cargando historial...';
+  db.collection('caja').orderBy(firebase.firestore.FieldPath.documentId(), 'desc').limit(7).get()
+    .then(snap=>{
+      let html = '';
+      if(snap.empty){
+        html = '<p style="font-size:13px;color:#8a7f6c;">Todavía no hay días registrados.</p>';
+      } else {
+        snap.forEach(doc=>{
+          const d = doc.data();
+          const estado = (d.cierre === undefined || d.cierre === null)
+            ? (d.apertura !== undefined ? '🟢 Abierta' : '⚪ Sin abrir')
+            : '🔒 Cerrada';
+          const dif = d.diferencia;
+          const difTxt = (dif === undefined || dif === null) ? '' :
+            (dif === 0 ? 'Cuadra ✅' : (dif > 0 ? `Sobran $${dif} 🟡` : `Faltan $${Math.abs(dif)} 🔴`));
+          html += `<div style="border-bottom:1px solid var(--linea);padding:8px 0;font-size:12.5px;">
+            <strong>${doc.id}</strong> — ${estado}<br>
+            ${d.apertura !== undefined ? 'Apertura: $' + d.apertura + ' · ' : ''}${(d.cierre !== undefined && d.cierre !== null) ? 'Cierre: $' + d.cierre + ' · ' : ''}${totalArray(d.didi,'monto') > 0 ? 'Didi: $'+totalArray(d.didi,'monto')+' · ' : ''}${totalArray(d.gastos,'monto') > 0 ? 'Gastos: $'+totalArray(d.gastos,'monto')+' · ' : ''}${difTxt}
+          </div>`;
+        });
+      }
+      document.getElementById('cajaContenido').innerHTML = html +
+        '<button type="button" id="volverCajaHoyBtn" class="btn-cancelar" style="width:100%;margin-top:10px;border:none;border-radius:8px;padding:10px;font-weight:800;cursor:pointer;">Volver a hoy</button>';
+      document.getElementById('volverCajaHoyBtn').addEventListener('click', abrirCaja);
+    })
+    .catch(err=>{ document.getElementById('cajaContenido').innerHTML = 'Error al cargar historial: ' + err.message; });
+}
+
 document.getElementById('cajaBtn').addEventListener('click', abrirCaja);
+document.getElementById('cajaHistorialBtn').addEventListener('click', verHistorialCaja);
 document.getElementById('cajaCerrarModal').addEventListener('click', ()=>{
   document.getElementById('cajaOverlay').classList.remove('show');
 });
