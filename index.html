@@ -522,11 +522,21 @@
       <label>🎉 Adornos de temporada</label>
       <select id="cfgTemporada">
         <option value="ninguna">Ninguno</option>
+        <option value="anonuevo">🎉 Año Nuevo (1 ene)</option>
+        <option value="reyes">👑 Día de Reyes (6 ene)</option>
+        <option value="candelaria">🕯️ Día de la Candelaria (2 feb)</option>
+        <option value="amor">💘 San Valentín (14 feb)</option>
+        <option value="diabandera">🇲🇽 Día de la Bandera (24 feb)</option>
+        <option value="pascua">🐣 Semana Santa / Pascua</option>
+        <option value="ninos">🎈 Día del Niño (30 abr)</option>
+        <option value="cincodemayo">🎺 5 de Mayo</option>
+        <option value="madres">💐 Día de las Madres (10 mayo)</option>
+        <option value="maestro">🍎 Día del Maestro (15 mayo)</option>
+        <option value="padre">👔 Día del Padre</option>
+        <option value="independencia">🎉 Fiestas Patrias (16 sept)</option>
         <option value="hanalpixan">💀 Hanal Pixán / Día de Muertos</option>
+        <option value="revolucion">🎺 Revolución Mexicana (20 nov)</option>
         <option value="navidad">🎄 Navidad</option>
-        <option value="diabandera">🇲🇽 Día de la Bandera</option>
-        <option value="independencia">🎉 Fiestas Patrias (16 de sept)</option>
-        <option value="amor">💘 San Valentín</option>
       </select>
 
       <label>🚫 Productos agotados hoy (se marcan grises, no se pueden pedir)</label>
@@ -558,26 +568,39 @@ const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
 let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[], temporada:'ninguna' };
 
 const TEMPORADAS = {
-  hanalpixan: {
-    texto:'💀 🕯️ Hanal Pixán 🕯️ 💀', color:'#5b2a86',
+  anonuevo: {
+    texto:'🎉 ¡Feliz Año Nuevo! 🥂', color:'#1d2b53',
     deco: [
-      {emoji:'🕸️', style:'top:8px;left:4px;font-size:42px;transform:rotate(-8deg);'},
-      {emoji:'🕸️', style:'top:8px;right:4px;font-size:42px;transform:rotate(8deg) scaleX(-1);'},
-      {emoji:'💀', style:'top:40vh;left:2px;font-size:26px;transform:rotate(-10deg);'},
-      {emoji:'🌼', style:'top:44vh;right:2px;font-size:24px;transform:rotate(10deg);'},
-      {emoji:'🧟', style:'bottom:84px;left:8px;font-size:32px;'},
-      {emoji:'🕯️', style:'bottom:84px;right:10px;font-size:28px;'}
+      {emoji:'🎆', style:'top:8px;left:4px;font-size:40px;'},
+      {emoji:'🥂', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'✨', style:'top:40vh;left:4px;font-size:22px;'},
+      {emoji:'✨', style:'top:44vh;right:6px;font-size:20px;'},
+      {emoji:'🎊', style:'bottom:84px;left:10px;font-size:30px;'}
     ]
   },
-  navidad: {
-    texto:'🎄 ❄️ Feliz Navidad ❄️ 🎄', color:'#1b6b3a',
+  reyes: {
+    texto:'👑 Feliz Día de Reyes 👑', color:'#6b3fa0',
     deco: [
-      {emoji:'🎄', style:'top:8px;left:4px;font-size:42px;'},
-      {emoji:'🎅', style:'top:4px;right:2px;font-size:40px;'},
-      {emoji:'❄️', style:'top:40vh;left:4px;font-size:22px;'},
-      {emoji:'❄️', style:'top:44vh;right:6px;font-size:20px;'},
-      {emoji:'🎁', style:'bottom:84px;left:10px;font-size:30px;'},
-      {emoji:'🔔', style:'bottom:84px;right:10px;font-size:28px;'}
+      {emoji:'👑', style:'top:8px;left:6px;font-size:38px;'},
+      {emoji:'🐫', style:'top:6px;right:4px;font-size:38px;'},
+      {emoji:'⭐', style:'top:40vh;left:6px;font-size:22px;'},
+      {emoji:'🍞', style:'bottom:84px;right:10px;font-size:30px;'}
+    ]
+  },
+  candelaria: {
+    texto:'🕯️ Feliz Día de la Candelaria 🫔', color:'#2a7fb8',
+    deco: [
+      {emoji:'🕯️', style:'top:8px;left:6px;font-size:36px;'},
+      {emoji:'🫔', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🕯️', style:'bottom:84px;left:10px;font-size:28px;'}
+    ]
+  },
+  amor: {
+    texto:'💘 San Valentín 💘', color:'#b4184a',
+    deco: [
+      {emoji:'💘', style:'top:8px;left:8px;font-size:34px;'},
+      {emoji:'🌹', style:'top:6px;right:8px;font-size:34px;'},
+      {emoji:'💌', style:'bottom:84px;right:10px;font-size:28px;'}
     ]
   },
   diabandera: {
@@ -586,6 +609,57 @@ const TEMPORADAS = {
       {emoji:'🇲🇽', style:'top:8px;left:6px;font-size:36px;'},
       {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
       {emoji:'🦅', style:'bottom:84px;left:8px;font-size:30px;'}
+    ]
+  },
+  pascua: {
+    texto:'🐣 Feliz Pascua 🐰', color:'#4f9b3d',
+    deco: [
+      {emoji:'🐰', style:'top:8px;left:6px;font-size:36px;'},
+      {emoji:'🐣', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🌷', style:'top:40vh;left:6px;font-size:22px;'},
+      {emoji:'🥚', style:'bottom:84px;right:10px;font-size:28px;'}
+    ]
+  },
+  ninos: {
+    texto:'🎈 Feliz Día del Niño 🧸', color:'#e0457b',
+    deco: [
+      {emoji:'🎈', style:'top:8px;left:6px;font-size:38px;'},
+      {emoji:'🧸', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🪁', style:'top:40vh;left:6px;font-size:24px;'},
+      {emoji:'🎈', style:'bottom:84px;right:10px;font-size:28px;'}
+    ]
+  },
+  cincodemayo: {
+    texto:'🎺 ¡Feliz 5 de Mayo! 🌮', color:'#2f7d32',
+    deco: [
+      {emoji:'🎺', style:'top:8px;left:6px;font-size:36px;'},
+      {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🌮', style:'bottom:84px;left:10px;font-size:30px;'}
+    ]
+  },
+  madres: {
+    texto:'💐 Feliz Día de las Madres 💐', color:'#d6336c',
+    deco: [
+      {emoji:'💐', style:'top:8px;left:6px;font-size:38px;'},
+      {emoji:'🌸', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🌷', style:'top:40vh;left:6px;font-size:22px;'},
+      {emoji:'💐', style:'bottom:84px;right:10px;font-size:28px;'}
+    ]
+  },
+  maestro: {
+    texto:'🍎 Feliz Día del Maestro 📚', color:'#1565c0',
+    deco: [
+      {emoji:'🍎', style:'top:8px;left:6px;font-size:36px;'},
+      {emoji:'📚', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🖊️', style:'bottom:84px;left:10px;font-size:28px;'}
+    ]
+  },
+  padre: {
+    texto:'👔 Feliz Día del Padre 🎣', color:'#2c3e78',
+    deco: [
+      {emoji:'👔', style:'top:8px;left:6px;font-size:36px;'},
+      {emoji:'🎣', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🧢', style:'bottom:84px;right:10px;font-size:28px;'}
     ]
   },
   independencia: {
@@ -597,12 +671,34 @@ const TEMPORADAS = {
       {emoji:'🎊', style:'bottom:84px;right:10px;font-size:30px;transform:scaleX(-1);'}
     ]
   },
-  amor: {
-    texto:'💘 San Valentín 💘', color:'#b4184a',
+  hanalpixan: {
+    texto:'💀 🕯️ Hanal Pixán 🕯️ 💀', color:'#5b2a86',
     deco: [
-      {emoji:'💘', style:'top:8px;left:8px;font-size:34px;'},
-      {emoji:'🌹', style:'top:6px;right:8px;font-size:34px;'},
-      {emoji:'💌', style:'bottom:84px;right:10px;font-size:28px;'}
+      {emoji:'🕸️', style:'top:8px;left:4px;font-size:42px;transform:rotate(-8deg);'},
+      {emoji:'🕸️', style:'top:8px;right:4px;font-size:42px;transform:rotate(8deg) scaleX(-1);'},
+      {emoji:'💀', style:'top:40vh;left:2px;font-size:26px;transform:rotate(-10deg);'},
+      {emoji:'🌼', style:'top:44vh;right:2px;font-size:24px;transform:rotate(10deg);'},
+      {emoji:'🧟', style:'bottom:84px;left:8px;font-size:32px;'},
+      {emoji:'🕯️', style:'bottom:84px;right:10px;font-size:28px;'}
+    ]
+  },
+  revolucion: {
+    texto:'🎺 Feliz Día de la Revolución 🐴', color:'#7a2e2e',
+    deco: [
+      {emoji:'🎺', style:'top:8px;left:6px;font-size:36px;'},
+      {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🐴', style:'bottom:84px;left:10px;font-size:28px;'}
+    ]
+  },
+  navidad: {
+    texto:'🎄 ❄️ Feliz Navidad ❄️ 🎄', color:'#1b6b3a',
+    deco: [
+      {emoji:'🎄', style:'top:8px;left:4px;font-size:42px;'},
+      {emoji:'🎅', style:'top:4px;right:2px;font-size:40px;'},
+      {emoji:'❄️', style:'top:40vh;left:4px;font-size:22px;'},
+      {emoji:'❄️', style:'top:44vh;right:6px;font-size:20px;'},
+      {emoji:'🎁', style:'bottom:84px;left:10px;font-size:30px;'},
+      {emoji:'🔔', style:'bottom:84px;right:10px;font-size:28px;'}
     ]
   }
 };
