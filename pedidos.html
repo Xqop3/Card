@@ -1124,13 +1124,15 @@ function abrirCaja(){
 
 function verHistorialCaja(){
   document.getElementById('cajaContenido').innerHTML = 'Cargando historial...';
-  db.collection('caja').orderBy(firebase.firestore.FieldPath.documentId(), 'desc').limit(7).get()
+  db.collection('caja').orderBy(firebase.firestore.FieldPath.documentId(), 'asc').limitToLast(7).get()
     .then(snap=>{
       let html = '';
       if(snap.empty){
         html = '<p style="font-size:13px;color:#8a7f6c;">Todavía no hay días registrados.</p>';
       } else {
-        snap.forEach(doc=>{
+        const docs = [];
+        snap.forEach(doc=> docs.push(doc));
+        docs.reverse().forEach(doc=>{
           const d = doc.data();
           const estado = (d.cierre === undefined || d.cierre === null)
             ? (d.apertura !== undefined ? '🟢 Abierta' : '⚪ Sin abrir')
