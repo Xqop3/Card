@@ -123,6 +123,10 @@
     filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));
     transform:rotate(10deg);
   }
+  .sec-divider{
+    text-align:center;font-size:18px;opacity:0.5;letter-spacing:16px;
+    margin-top:20px;padding-left:16px;user-select:none;
+  }
 
   .items{padding:6px 16px 4px;}
   .card{
@@ -356,7 +360,7 @@
   <div id="menu"></div>
 
   <div class="datos">
-    <h3>Tus datos</h3>
+    <h3 id="datosTitulo">Tus datos</h3>
     <div class="campo">
       <label>Nombre</label>
       <input type="text" id="nombre" placeholder="¿A nombre de quién?">
@@ -685,16 +689,25 @@ const TEMPORADAS = {
 function pintarTemporada(){
   const el = document.getElementById('temporadaBanner');
   const headerDeco = document.getElementById('headerDeco');
+  const datosTitulo = document.getElementById('datosTitulo');
+  const emptyNote = document.getElementById('emptyNote');
+  const baseEmptyNote = 'Agrega algo del menú para armar tu pedido 👆';
   const t = TEMPORADAS[cfg.temporada];
   if(!t){
     el.classList.remove('show');
     headerDeco.innerHTML = '';
+    datosTitulo.textContent = 'Tus datos';
+    emptyNote.textContent = baseEmptyNote;
+    render();
+    syncCartDisplay();
     return;
   }
   el.textContent = t.texto;
   el.style.background = t.color;
   el.classList.add('show');
   headerDeco.innerHTML = t.header.map(d=>`<span class="header-deco" style="${d.style}">${d.emoji}</span>`).join('');
+  datosTitulo.textContent = `Tus datos ${t.stamp}`;
+  emptyNote.textContent = `${baseEmptyNote} ${t.stamp}`;
   render();
   syncCartDisplay();
 }
@@ -702,6 +715,11 @@ function pintarTemporada(){
 function decoSeccion(){
   const t = TEMPORADAS[cfg.temporada];
   return t ? `<span class="sec-stamp">${t.stamp}</span>` : '';
+}
+
+function dividerSeccion(){
+  const t = TEMPORADAS[cfg.temporada];
+  return t ? `<div class="sec-divider">${t.stamp} ${t.stamp} ${t.stamp}</div>` : '';
 }
 let happyCardSaldo = 0;
 let happyCardDescuentoAplicado = 0;
@@ -1009,6 +1027,7 @@ function render(){
   for(const sec in menu){
     const bgUrl = secBanners[sec] ? IMG[secBanners[sec]] : secBannersExtra[sec];
     const bg = bgUrl ? ` style="background-image:url('${bgUrl}')"` : '';
+    out += dividerSeccion();
     out += `<div class="sec-head"${bg}><span>${sec}</span>${decoSeccion()}</div>`;
     if(secNotes[sec]) out += `<span class="sec-note">${secNotes[sec]}</span>`;
     out += `<div class="items">`;
