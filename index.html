@@ -136,7 +136,7 @@
   }
   .card .card-stamp{
     position:absolute;right:8px;bottom:2px;z-index:0;
-    font-size:46px;line-height:1;opacity:0.16;
+    font-size:46px;line-height:1;opacity:0.38;
     pointer-events:none;user-select:none;transform:rotate(-10deg);
   }
   .card > *{position:relative;z-index:1;}
@@ -588,6 +588,7 @@ let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:
 const TEMPORADAS = {
   anonuevo: {
     texto:'🎉 ¡Feliz Año Nuevo! 🥂', color:'#1d2b53', stamp:'🎆',
+    iconos:['🎆','🥂','✨','🎊'],
     header: [
       {emoji:'🎆', style:'top:6px;left:2px;font-size:52px;transform:rotate(-6deg);'},
       {emoji:'🥂', style:'top:10px;right:6px;font-size:46px;transform:rotate(8deg);'}
@@ -595,6 +596,7 @@ const TEMPORADAS = {
   },
   reyes: {
     texto:'👑 Feliz Día de Reyes 👑', color:'#6b3fa0', stamp:'👑',
+    iconos:['👑','⭐','🐫','🎁'],
     header: [
       {emoji:'👑', style:'top:6px;left:4px;font-size:50px;transform:rotate(-6deg);'},
       {emoji:'🐫', style:'top:10px;right:2px;font-size:50px;transform:rotate(6deg);'}
@@ -602,6 +604,7 @@ const TEMPORADAS = {
   },
   candelaria: {
     texto:'🕯️ Feliz Día de la Candelaria 🫔', color:'#2a7fb8', stamp:'🕯️',
+    iconos:['🕯️','🫔','🔥'],
     header: [
       {emoji:'🕯️', style:'top:8px;left:6px;font-size:48px;'},
       {emoji:'🫔', style:'top:8px;right:6px;font-size:48px;'}
@@ -609,6 +612,7 @@ const TEMPORADAS = {
   },
   amor: {
     texto:'💘 San Valentín 💘', color:'#b4184a', stamp:'🌹',
+    iconos:['💘','🌹','💌','💝'],
     header: [
       {emoji:'💘', style:'top:8px;left:8px;font-size:46px;transform:rotate(-8deg);'},
       {emoji:'🌹', style:'top:8px;right:8px;font-size:46px;transform:rotate(8deg);'}
@@ -616,6 +620,7 @@ const TEMPORADAS = {
   },
   diabandera: {
     texto:'🇲🇽 Día de la Bandera 🇲🇽', color:'#1b6b3a', stamp:'🇲🇽',
+    iconos:['🇲🇽','🦅','⭐'],
     header: [
       {emoji:'🇲🇽', style:'top:8px;left:6px;font-size:46px;'},
       {emoji:'🦅', style:'top:8px;right:6px;font-size:46px;'}
@@ -623,6 +628,7 @@ const TEMPORADAS = {
   },
   pascua: {
     texto:'🐣 Feliz Pascua 🐰', color:'#4f9b3d', stamp:'🐰',
+    iconos:['🐰','🐣','🌷','🥚'],
     header: [
       {emoji:'🐰', style:'top:8px;left:6px;font-size:48px;'},
       {emoji:'🐣', style:'top:8px;right:6px;font-size:48px;'}
@@ -630,6 +636,7 @@ const TEMPORADAS = {
   },
   ninos: {
     texto:'🎈 Feliz Día del Niño 🧸', color:'#e0457b', stamp:'🎈',
+    iconos:['🎈','🧸','🪁','🎉'],
     header: [
       {emoji:'🎈', style:'top:6px;left:6px;font-size:50px;transform:rotate(-6deg);'},
       {emoji:'🧸', style:'top:10px;right:6px;font-size:46px;transform:rotate(6deg);'}
@@ -637,6 +644,7 @@ const TEMPORADAS = {
   },
   cincodemayo: {
     texto:'🎺 ¡Feliz 5 de Mayo! 🌮', color:'#2f7d32', stamp:'🌮',
+    iconos:['🎺','🌮','🇲🇽','🌶️'],
     header: [
       {emoji:'🎺', style:'top:8px;left:4px;font-size:48px;transform:rotate(-10deg);'},
       {emoji:'🌮', style:'top:10px;right:6px;font-size:46px;transform:rotate(8deg);'}
@@ -644,6 +652,7 @@ const TEMPORADAS = {
   },
   madres: {
     texto:'💐 Feliz Día de las Madres 💐', color:'#d6336c', stamp:'💐',
+    iconos:['💐','🌸','🌷','💗'],
     header: [
       {emoji:'💐', style:'top:6px;left:4px;font-size:50px;transform:rotate(-6deg);'},
       {emoji:'🌸', style:'top:10px;right:8px;font-size:44px;transform:rotate(6deg);'}
@@ -651,6 +660,7 @@ const TEMPORADAS = {
   },
   maestro: {
     texto:'🍎 Feliz Día del Maestro 📚', color:'#1565c0', stamp:'🍎',
+    iconos:['🍎','📚','🖊️','🔔'],
     header: [
       {emoji:'🍎', style:'top:8px;left:8px;font-size:46px;'},
       {emoji:'📚', style:'top:8px;right:6px;font-size:46px;'}
@@ -658,6 +668,7 @@ const TEMPORADAS = {
   },
   padre: {
     texto:'👔 Feliz Día del Padre 🎣', color:'#2c3e78', stamp:'🎣',
+    iconos:['👔','🎣','🧢','🍺'],
     header: [
       {emoji:'👔', style:'top:8px;left:8px;font-size:46px;'},
       {emoji:'🎣', style:'top:8px;right:4px;font-size:48px;transform:rotate(10deg);'}
@@ -665,6 +676,7 @@ const TEMPORADAS = {
   },
   independencia: {
     texto:'🎉 ¡Viva México! 🎉', color:'#1b6b3a', stamp:'🎉',
+    iconos:['🎉','🇲🇽','🎊','🌟'],
     header: [
       {emoji:'🎉', style:'top:6px;left:6px;font-size:48px;transform:rotate(-8deg);'},
       {emoji:'🇲🇽', style:'top:8px;right:6px;font-size:46px;transform:rotate(8deg);'}
@@ -672,6 +684,7 @@ const TEMPORADAS = {
   },
   hanalpixan: {
     texto:'💀 🕯️ Hanal Pixán 🕯️ 💀', color:'#5b2a86', stamp:'💀',
+    iconos:['💀','🕸️','🌼','🧟','🕯️'],
     header: [
       {emoji:'🕸️', style:'top:0px;left:0px;font-size:60px;transform:rotate(-8deg);'},
       {emoji:'🕸️', style:'top:0px;right:0px;font-size:60px;transform:rotate(8deg) scaleX(-1);'}
@@ -679,6 +692,7 @@ const TEMPORADAS = {
   },
   revolucion: {
     texto:'🎺 Feliz Día de la Revolución 🐴', color:'#7a2e2e', stamp:'🎺',
+    iconos:['🎺','🐴','🇲🇽','⭐'],
     header: [
       {emoji:'🎺', style:'top:8px;left:4px;font-size:48px;transform:rotate(-10deg);'},
       {emoji:'🐴', style:'top:8px;right:6px;font-size:46px;transform:rotate(6deg);'}
@@ -686,6 +700,7 @@ const TEMPORADAS = {
   },
   navidad: {
     texto:'🎄 ❄️ Feliz Navidad ❄️ 🎄', color:'#1b6b3a', stamp:'🎄',
+    iconos:['🎄','❄️','🎅','🎁','🔔'],
     header: [
       {emoji:'🎄', style:'top:4px;left:2px;font-size:54px;'},
       {emoji:'🎅', style:'top:2px;right:0px;font-size:52px;'}
@@ -719,19 +734,26 @@ function pintarTemporada(){
   syncCartDisplay();
 }
 
+let iconoIdx = 0;
+function siguienteIcono(t){
+  const lista = t.iconos || [t.stamp];
+  return lista[(iconoIdx++) % lista.length];
+}
+
 function decoSeccion(){
   const t = TEMPORADAS[cfg.temporada];
-  return t ? `<span class="sec-stamp">${t.stamp}</span>` : '';
+  return t ? `<span class="sec-stamp">${siguienteIcono(t)}</span>` : '';
 }
 
 function dividerSeccion(){
   const t = TEMPORADAS[cfg.temporada];
-  return t ? `<div class="sec-divider">${t.stamp} ${t.stamp} ${t.stamp}</div>` : '';
+  if(!t) return '';
+  return `<div class="sec-divider">${siguienteIcono(t)} ${siguienteIcono(t)} ${siguienteIcono(t)}</div>`;
 }
 
 function cardStamp(){
   const t = TEMPORADAS[cfg.temporada];
-  return t ? `<span class="card-stamp">${t.stamp}</span>` : '';
+  return t ? `<span class="card-stamp">${siguienteIcono(t)}</span>` : '';
 }
 let happyCardSaldo = 0;
 let happyCardDescuentoAplicado = 0;
@@ -1034,6 +1056,7 @@ function renderUnits(id){
 }
 
 function render(){
+  iconoIdx = 0;
   const menuDiv = document.getElementById('menu');
   let out = '';
   for(const sec in menu){
