@@ -111,6 +111,11 @@
     font-weight:800;font-size:13px;letter-spacing:0.3px;
   }
   .temporada-banner.show{display:block;}
+  .temporada-deco{
+    position:fixed;pointer-events:none;z-index:5;user-select:none;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.35));
+    line-height:1;
+  }
 
   .items{padding:6px 16px 4px;}
   .card{
@@ -339,6 +344,7 @@
   </header>
 
   <div class="temporada-banner" id="temporadaBanner"></div>
+  <div id="temporadaDecoracion"></div>
 
   <div id="menu"></div>
 
@@ -552,20 +558,68 @@ const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
 let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[], temporada:'ninguna' };
 
 const TEMPORADAS = {
-  hanalpixan: { texto:'💀 🕯️ Hanal Pixán 🕯️ 💀', color:'#5b2a86' },
-  navidad: { texto:'🎄 ❄️ Feliz Navidad ❄️ 🎄', color:'#1b6b3a' },
-  diabandera: { texto:'🇲🇽 Día de la Bandera 🇲🇽', color:'#1b6b3a' },
-  independencia: { texto:'🎉 ¡Viva México! 🎉', color:'#1b6b3a' },
-  amor: { texto:'💘 San Valentín 💘', color:'#b4184a' }
+  hanalpixan: {
+    texto:'💀 🕯️ Hanal Pixán 🕯️ 💀', color:'#5b2a86',
+    deco: [
+      {emoji:'🕸️', style:'top:8px;left:4px;font-size:42px;transform:rotate(-8deg);'},
+      {emoji:'🕸️', style:'top:8px;right:4px;font-size:42px;transform:rotate(8deg) scaleX(-1);'},
+      {emoji:'💀', style:'top:40vh;left:2px;font-size:26px;transform:rotate(-10deg);'},
+      {emoji:'🌼', style:'top:44vh;right:2px;font-size:24px;transform:rotate(10deg);'},
+      {emoji:'🧟', style:'bottom:84px;left:8px;font-size:32px;'},
+      {emoji:'🕯️', style:'bottom:84px;right:10px;font-size:28px;'}
+    ]
+  },
+  navidad: {
+    texto:'🎄 ❄️ Feliz Navidad ❄️ 🎄', color:'#1b6b3a',
+    deco: [
+      {emoji:'🎄', style:'top:8px;left:4px;font-size:42px;'},
+      {emoji:'🎅', style:'top:4px;right:2px;font-size:40px;'},
+      {emoji:'❄️', style:'top:40vh;left:4px;font-size:22px;'},
+      {emoji:'❄️', style:'top:44vh;right:6px;font-size:20px;'},
+      {emoji:'🎁', style:'bottom:84px;left:10px;font-size:30px;'},
+      {emoji:'🔔', style:'bottom:84px;right:10px;font-size:28px;'}
+    ]
+  },
+  diabandera: {
+    texto:'🇲🇽 Día de la Bandera 🇲🇽', color:'#1b6b3a',
+    deco: [
+      {emoji:'🇲🇽', style:'top:8px;left:6px;font-size:36px;'},
+      {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🦅', style:'bottom:84px;left:8px;font-size:30px;'}
+    ]
+  },
+  independencia: {
+    texto:'🎉 ¡Viva México! 🎉', color:'#1b6b3a',
+    deco: [
+      {emoji:'🎉', style:'top:8px;left:6px;font-size:36px;'},
+      {emoji:'🇲🇽', style:'top:6px;right:6px;font-size:36px;'},
+      {emoji:'🎊', style:'bottom:84px;left:10px;font-size:30px;'},
+      {emoji:'🎊', style:'bottom:84px;right:10px;font-size:30px;transform:scaleX(-1);'}
+    ]
+  },
+  amor: {
+    texto:'💘 San Valentín 💘', color:'#b4184a',
+    deco: [
+      {emoji:'💘', style:'top:8px;left:8px;font-size:34px;'},
+      {emoji:'🌹', style:'top:6px;right:8px;font-size:34px;'},
+      {emoji:'💌', style:'bottom:84px;right:10px;font-size:28px;'}
+    ]
+  }
 };
 
 function pintarTemporada(){
   const el = document.getElementById('temporadaBanner');
+  const decoCont = document.getElementById('temporadaDecoracion');
   const t = TEMPORADAS[cfg.temporada];
-  if(!t){ el.classList.remove('show'); return; }
+  if(!t){
+    el.classList.remove('show');
+    decoCont.innerHTML = '';
+    return;
+  }
   el.textContent = t.texto;
   el.style.background = t.color;
   el.classList.add('show');
+  decoCont.innerHTML = t.deco.map(d=>`<span class="temporada-deco" style="${d.style}">${d.emoji}</span>`).join('');
 }
 let happyCardSaldo = 0;
 let happyCardDescuentoAplicado = 0;
