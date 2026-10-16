@@ -106,6 +106,12 @@
   .sec-head span{position:relative;z-index:1;text-shadow:2px 2px 0 rgba(0,0,0,0.3);}
   .sec-note{font-size:13px;color:#6b5f4f;font-weight:700;padding:0 20px;margin-top:8px;display:block;line-height:1.4;}
 
+  .temporada-banner{
+    display:none;text-align:center;padding:9px 10px;color:#fff;
+    font-weight:800;font-size:13px;letter-spacing:0.3px;
+  }
+  .temporada-banner.show{display:block;}
+
   .items{padding:6px 16px 4px;}
   .card{
     background:#fff;border:2px solid var(--carbon);border-radius:12px;
@@ -332,6 +338,8 @@
     </div>
   </header>
 
+  <div class="temporada-banner" id="temporadaBanner"></div>
+
   <div id="menu"></div>
 
   <div class="datos">
@@ -505,6 +513,16 @@
         <input type="checkbox" id="cfgPermitirRecoger">
       </div>
 
+      <label>🎉 Adornos de temporada</label>
+      <select id="cfgTemporada">
+        <option value="ninguna">Ninguno</option>
+        <option value="hanalpixan">💀 Hanal Pixán / Día de Muertos</option>
+        <option value="navidad">🎄 Navidad</option>
+        <option value="diabandera">🇲🇽 Día de la Bandera</option>
+        <option value="independencia">🎉 Fiestas Patrias (16 de sept)</option>
+        <option value="amor">💘 San Valentín</option>
+      </select>
+
       <label>🚫 Productos agotados hoy (se marcan grises, no se pueden pedir)</label>
       <div id="agotadosLista" class="agotados-lista"></div>
 
@@ -531,7 +549,24 @@ const settingsRef = db.collection('settings').doc('config');
 const pedidosRef = db.collection('pedidos');
 const clientesRef = db.collection('clientes');
 const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
-let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[] };
+let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[], temporada:'ninguna' };
+
+const TEMPORADAS = {
+  hanalpixan: { texto:'💀 🕯️ Hanal Pixán 🕯️ 💀', color:'#5b2a86' },
+  navidad: { texto:'🎄 ❄️ Feliz Navidad ❄️ 🎄', color:'#1b6b3a' },
+  diabandera: { texto:'🇲🇽 Día de la Bandera 🇲🇽', color:'#1b6b3a' },
+  independencia: { texto:'🎉 ¡Viva México! 🎉', color:'#1b6b3a' },
+  amor: { texto:'💘 San Valentín 💘', color:'#b4184a' }
+};
+
+function pintarTemporada(){
+  const el = document.getElementById('temporadaBanner');
+  const t = TEMPORADAS[cfg.temporada];
+  if(!t){ el.classList.remove('show'); return; }
+  el.textContent = t.texto;
+  el.style.background = t.color;
+  el.classList.add('show');
+}
 let happyCardSaldo = 0;
 let happyCardDescuentoAplicado = 0;
 let pin = {lat:null, lng:null, distKm:null, fee:null, calculando:false, ruta:'osrm'};
@@ -1468,7 +1503,8 @@ function applySettings(s){
     sinEnvioHoy: !!s.sinEnvioHoy,
     mensajeSinEnvio: s.mensajeSinEnvio || 'Hoy no tenemos servicio a domicilio, solo puedes recoger en el local.',
     permitirRecoger: !!s.permitirRecoger,
-    agotados: Array.isArray(s.agotados) ? s.agotados : []
+    agotados: Array.isArray(s.agotados) ? s.agotados : [],
+    temporada: s.temporada || 'ninguna'
   };
 
   const banner = document.getElementById('bannerCerrado');
@@ -1532,6 +1568,7 @@ function applySettings(s){
   }
   updateCartBar();
   actualizarHorarioBadge();
+  pintarTemporada();
 
   // Si el panel de admin ya está abierto cuando llega/cambia la config, la reflejamos ahí también.
   if(auth.currentUser && auth.currentUser.email === ADMIN_EMAIL){
@@ -1632,6 +1669,7 @@ function llenarFormularioAdmin(){
   document.getElementById('cfgSinEnvio').checked = cfg.sinEnvioHoy;
   document.getElementById('cfgPermitirRecoger').checked = cfg.permitirRecoger;
   document.getElementById('cfgMensajeSinEnvio').value = cfg.mensajeSinEnvio;
+  document.getElementById('cfgTemporada').value = cfg.temporada;
   poblarListaAgotados();
 }
 
@@ -1674,6 +1712,7 @@ document.getElementById('adminGuardarBtn').addEventListener('click', ()=>{
     sinEnvioHoy: document.getElementById('cfgSinEnvio').checked,
     permitirRecoger: document.getElementById('cfgPermitirRecoger').checked,
     mensajeSinEnvio: document.getElementById('cfgMensajeSinEnvio').value.trim(),
+    temporada: document.getElementById('cfgTemporada').value,
     agotados
   };
   const msg = document.getElementById('adminGuardarMsg');
