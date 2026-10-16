@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Happy Burger — Pide aquí</title>
+<link rel="icon" type="image/png" href="assets/favicon.png">
 <style>
 @font-face {
   font-family: 'Lilita One';
@@ -80,6 +81,7 @@
     -webkit-text-stroke:1.5px var(--rojo);
     text-shadow:3px 3px 0 var(--rojo);
   }
+  .logo-img{display:block;margin:0 auto;width:min(280px,70vw);height:auto;}
   .sub{color:var(--amarillo);font-weight:800;font-size:13px;letter-spacing:1px;text-transform:uppercase;margin-top:8px;}
   .info{
     margin-top:16px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;
@@ -321,7 +323,7 @@
 <div class="wrap" id="wrap">
 
   <header>
-    <h1 id="mainTitle">HAPPY BURGER</h1>
+    <h1 id="mainTitle"><img class="logo-img" src="assets/logo-white.png" alt="Happy Burger"></h1>
     <div class="sub">arma tu pedido y gana mientras comes 🍔💰</div>
     <div class="info">
       <span id="horarioBadge">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
