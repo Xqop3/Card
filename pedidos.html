@@ -57,6 +57,18 @@
   .ventas{background:var(--verde);color:#fff;border-radius:6px;padding:8px 14px;font-weight:800;font-size:13px;}
   .ventas.pedidos{background:#1565c0;}
   .ventas.envios{background:var(--amarillo);color:var(--carbon);}
+  .ventas.efectivo{background:#2e7d32;}
+  .ventas.transferencia{background:#1565c0;}
+  .ventas.tarjeta{background:#6c5ce7;}
+  .comision-box{
+    display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:6px 10px;
+    font-size:12px;color:#fff;font-weight:700;
+  }
+  .comision-box input{
+    width:46px;padding:3px 5px;border-radius:4px;border:1px solid #999;
+    font-size:12px;text-align:right;
+  }
   .timer{font-size:11px;font-weight:800;background:#eee;border-radius:6px;padding:2px 7px;margin-left:6px;}
   .timer.aviso{background:#fff3cd;color:#8a6d00;}
   .timer.urgente{background:#fdecea;color:var(--rojo-2);}
@@ -108,6 +120,15 @@
       <span class="ventas" id="ventasTotal">💵 Ganancia total: $0</span>
       <span class="ventas pedidos" id="ventasPedidos">🍔 Pedidos: $0</span>
       <span class="ventas envios" id="ventasEnvios">🛵 Envíos: $0</span>
+    </div>
+    <div class="ventas-box">
+      <span class="ventas efectivo" id="ventasEfectivo">💵 Efectivo: $0</span>
+      <span class="ventas transferencia" id="ventasTransferencia">🏦 Transferencia: $0</span>
+      <span class="ventas tarjeta" id="ventasTarjeta">💳 Tarjeta: $0</span>
+      <label class="comision-box">
+        Comisión tarjeta
+        <input type="number" id="comisionTarjetaInput" min="0" step="0.1" value="3.5">%
+      </label>
     </div>
     <button id="nuevoManualBtn" style="background:#6c5ce7;">🧾 Pedido de mostrador</button>
     <button id="cajaBtn" style="background:var(--verde);">💰 Caja</button>
@@ -370,6 +391,21 @@ let idsConocidos = new Set();
 let wakeLock = null;
 let pedidosCache = {};
 
+function comisionTarjeta(){
+  const input = document.getElementById('comisionTarjetaInput');
+  return Number(input && input.value) || 3.5;
+}
+
+(function(){
+  const input = document.getElementById('comisionTarjetaInput');
+  const guardada = localStorage.getItem('comisionTarjetaPct');
+  if(guardada !== null) input.value = guardada;
+  input.addEventListener('input', ()=>{
+    localStorage.setItem('comisionTarjetaPct', input.value);
+    renderTablero(Object.values(pedidosCache));
+  });
+})();
+
 function pitido(){
   try{
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -570,6 +606,7 @@ function renderTablero(pedidos){
   const cols = { nuevo:[], preparando:[], listo:[], entregado:[] };
   pedidosCache = {};
   let ganEnvios = 0, ganPedidos = 0;
+  let totalEfectivo = 0, totalTransferencia = 0, totalTarjeta = 0;
   pedidos.forEach(p=>{
     pedidosCache[p.id] = p;
     const estado = p.estado || 'nuevo';
@@ -580,6 +617,10 @@ function renderTablero(pedidos){
       const descuento = Number(p.descuento) || 0;
       ganEnvios += envio;
       ganPedidos += Math.max(0, subtotal - descuento);
+      const totalPedido = Math.max(0, subtotal + envio - descuento);
+      if(p.pago === 'Efectivo') totalEfectivo += totalPedido;
+      else if(p.pago === 'Transferencia') totalTransferencia += totalPedido;
+      else if(p.pago === 'Tarjeta') totalTarjeta += totalPedido;
     }
     if(estado === 'entregado'){
       if(fecha && fecha >= hoy) cols.entregado.push(p);
@@ -590,6 +631,14 @@ function renderTablero(pedidos){
   document.getElementById('ventasTotal').textContent = `💵 Ganancia total: $${ganPedidos + ganEnvios}`;
   document.getElementById('ventasPedidos').textContent = `🍔 Pedidos: $${ganPedidos}`;
   document.getElementById('ventasEnvios').textContent = `🛵 Envíos: $${ganEnvios}`;
+  document.getElementById('ventasEfectivo').textContent = `💵 Efectivo: $${totalEfectivo}`;
+  document.getElementById('ventasTransferencia').textContent = `🏦 Transferencia: $${totalTransferencia}`;
+  const comisionPct = comisionTarjeta();
+  const comisionMonto = Number((totalTarjeta * comisionPct / 100).toFixed(2));
+  const tarjetaNeto = Number((totalTarjeta - comisionMonto).toFixed(2));
+  document.getElementById('ventasTarjeta').textContent = totalTarjeta > 0
+    ? `💳 Tarjeta: $${totalTarjeta} (neto: $${tarjetaNeto}, -$${comisionMonto} comisión)`
+    : `💳 Tarjeta: $0`;
   for(const key in cols){
     const contenedor = document.getElementById('col'+key.charAt(0).toUpperCase()+key.slice(1));
     contenedor.innerHTML = '';
