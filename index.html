@@ -69,11 +69,11 @@
   .topbar{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
   }
-  .topbar-brand{display:flex;align-items:center;gap:12px;cursor:pointer;justify-content:center;width:100%;}
+  .topbar-brand{display:flex;align-items:center;gap:8px;cursor:pointer;}
   h1{margin:0;line-height:0;}
-  .logo-img{display:block;width:52px;height:52px;object-fit:contain;}
+  .logo-img{display:block;width:34px;height:34px;object-fit:contain;}
   .brand-name{
-    font-family:'Lilita One',sans-serif;color:var(--carbon);font-size:25px;
+    font-family:'Lilita One',sans-serif;color:var(--carbon);font-size:19px;
   }
   .info{
     margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;
@@ -530,10 +530,8 @@
     <button class="admin-close" id="perfilCloseBtn">✕</button>
     <img class="perfil-mascota" src="assets/logo-color.png" alt="Happy Burger">
     <h2 style="text-align:center;">Happy Burger</h2>
-    <div class="info perfil-info">
+    <div class="info perfil-info" style="display:none;">
       <span id="horarioBadge">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
-      <span>🛵 Envío cerca de <b>Mulchechén</b></span>
-      <span>📲 <b>961 802 5610</b></span>
     </div>
     <button type="button" class="new-order-btn" id="perfilVerPedidoBtn" style="margin-top:16px;">Ver mis datos de pedido</button>
   </div>
