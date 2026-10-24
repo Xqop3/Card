@@ -420,7 +420,7 @@
   }
   .admin-box h2{font-family:'Lilita One',sans-serif;color:var(--rojo);margin:0 0 14px;}
   .admin-box label{display:block;font-weight:700;font-size:13px;margin:14px 0 5px;}
-  .admin-box input[type="email"],.admin-box input[type="password"],.admin-box textarea{
+  .admin-box input[type="email"],.admin-box input[type="password"],.admin-box input[type="text"],.admin-box input[type="tel"],.admin-box textarea{
     width:100%;padding:10px;border:1.5px solid var(--linea);border-radius:8px;font-family:'Mulish',sans-serif;font-size:14px;
   }
   .admin-box textarea{min-height:60px;resize:vertical;}
@@ -651,6 +651,18 @@
       <span class="horario-badge" id="horarioBadge">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
     </div>
     <button type="button" class="new-order-btn" id="perfilVerPedidoBtn" style="margin-top:16px;">Ver mis datos de pedido</button>
+
+    <div id="perfilCuentaBox" style="display:none;text-align:left;">
+      <label>Nombre</label>
+      <input type="text" id="cuentaNombre" placeholder="¿Cómo te llamas?">
+      <label>Teléfono</label>
+      <input type="tel" id="cuentaTelefono" inputmode="numeric" maxlength="10" placeholder="10 dígitos">
+      <label>Calle / Dirección</label>
+      <input type="text" id="cuentaCalle" placeholder="Calle, número, colonia">
+      <button type="button" class="admin-btn" id="cuentaGuardarBtn">Guardar</button>
+      <div class="admin-msg" id="cuentaGuardarMsg"></div>
+    </div>
+
     <button type="button" class="admin-btn secondary" id="perfilAuthBtn" style="margin-top:10px;">👤 Regístrate / Inicia sesión</button>
   </div>
 </div>
@@ -823,6 +835,7 @@ const db = firebase.firestore();
 const settingsRef = db.collection('settings').doc('config');
 const pedidosRef = db.collection('pedidos');
 const clientesRef = db.collection('clientes');
+const clientesCuentaRef = db.collection('clientesCuenta'); // perfil del cliente autenticado, por uid (independiente de "clientes" que es por teléfono)
 const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
 let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[], temporada:'ninguna' };
 
@@ -2435,7 +2448,9 @@ function traducirErrorAuth(err){
     'auth/invalid-email':'Ese correo no es válido.',
     'auth/weak-password':'La contraseña debe tener al menos 6 caracteres.',
     'auth/wrong-password':'Contraseña incorrecta.',
-    'auth/user-not-found':'No encontramos una cuenta con ese correo.'
+    'auth/user-not-found':'No encontramos una cuenta con ese correo.',
+    'auth/operation-not-allowed':'El registro por correo no está activado todavía (falta habilitarlo en Firebase).',
+    'auth/network-request-failed':'Falló la conexión, revisa tu internet e intenta de nuevo.'
   };
   return (err && map[err.code]) || 'No se pudo completar, intenta de nuevo.';
 }
@@ -2443,14 +2458,47 @@ function actualizarBotonAuthPerfil(){
   const btn = document.getElementById('perfilAuthBtn');
   if(!btn) return;
   const user = auth.currentUser;
-  if(user && user.email !== ADMIN_EMAIL){
+  const esClienteLogueado = !!user && user.email !== ADMIN_EMAIL;
+  if(esClienteLogueado){
     btn.textContent = '🚪 Cerrar sesión (' + user.email + ')';
     btn.onclick = ()=> auth.signOut();
   } else {
     btn.textContent = '👤 Regístrate / Inicia sesión';
     btn.onclick = abrirAuthOverlay;
   }
+  document.getElementById('perfilCuentaBox').style.display = esClienteLogueado ? 'block' : 'none';
+  if(esClienteLogueado) cargarPerfilCuenta(user.uid);
 }
+
+function cargarPerfilCuenta(uid){
+  const msg = document.getElementById('cuentaGuardarMsg');
+  msg.textContent = '';
+  msg.className = 'admin-msg';
+  clientesCuentaRef.doc(uid).get().then(doc=>{
+    const datos = doc.exists ? doc.data() : {};
+    document.getElementById('cuentaNombre').value = datos.nombre || '';
+    document.getElementById('cuentaTelefono').value = datos.telefono || '';
+    document.getElementById('cuentaCalle').value = datos.calle || '';
+  }).catch(()=>{});
+}
+
+document.getElementById('cuentaGuardarBtn').addEventListener('click', ()=>{
+  const user = auth.currentUser;
+  const msg = document.getElementById('cuentaGuardarMsg');
+  if(!user){ return; }
+  const datos = {
+    nombre: document.getElementById('cuentaNombre').value.trim(),
+    telefono: document.getElementById('cuentaTelefono').value.replace(/\D/g,''),
+    calle: document.getElementById('cuentaCalle').value.trim()
+  };
+  clientesCuentaRef.doc(user.uid).set(datos, { merge:true }).then(()=>{
+    msg.className = 'admin-msg ok';
+    msg.textContent = '✅ Datos guardados';
+  }).catch(()=>{
+    msg.className = 'admin-msg err';
+    msg.textContent = 'No se pudo guardar, intenta de nuevo.';
+  });
+});
 document.getElementById('authCloseBtn').addEventListener('click', ()=>{
   document.getElementById('authOverlay').classList.remove('show');
 });
@@ -2459,19 +2507,29 @@ document.getElementById('authToggleLink').addEventListener('click', (e)=>{
   authMode = authMode === 'signup' ? 'login' : 'signup';
   actualizarTextoAuthForm();
 });
-document.getElementById('authSubmitBtn').addEventListener('click', ()=>{
+document.getElementById('authSubmitBtn').addEventListener('click', (e)=>{
+  e.preventDefault();
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
   const msg = document.getElementById('authMsg');
+  const btn = document.getElementById('authSubmitBtn');
   msg.textContent = '';
   if(!email || !password){ msg.textContent = 'Escribe tu correo y contraseña.'; return; }
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Un momento...';
   const promesa = authMode === 'signup'
     ? auth.createUserWithEmailAndPassword(email, password)
     : auth.signInWithEmailAndPassword(email, password);
   promesa.then(()=>{
     document.getElementById('authOverlay').classList.remove('show');
+    actualizarBotonAuthPerfil();
+    document.getElementById('perfilOverlay').classList.add('show');
   }).catch(err=>{
     msg.textContent = traducirErrorAuth(err);
+  }).finally(()=>{
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
   });
 });
 
