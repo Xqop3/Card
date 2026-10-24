@@ -140,6 +140,13 @@
 
   .items{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 16px 4px;}
   .promo-items{display:block;}
+  .promo-carousel-wrap{padding:14px 16px 4px;}
+  .promo-carousel{overflow:hidden;border-radius:18px;}
+  .promo-track{display:flex;transition:transform .5s ease;}
+  .promo-track .promo-card{flex:0 0 100%;width:100%;margin:0;}
+  .promo-dots{display:flex;justify-content:center;gap:6px;margin-top:10px;}
+  .promo-dot{width:7px;height:7px;border-radius:50%;background:var(--linea);cursor:pointer;transition:all .2s;border:none;padding:0;}
+  .promo-dot.active{background:var(--rojo);width:18px;border-radius:4px;}
   .promo-card{
     display:grid !important;grid-template-columns:1fr auto;grid-template-rows:auto auto;
     align-items:start;gap:4px 14px;
@@ -440,6 +447,11 @@
   <div class="cats-title">Categorías</div>
   <div class="cats-row" id="catsRow"></div>
 
+  <div class="promo-carousel-wrap" id="promoCarouselWrap" style="display:none;">
+    <div class="promo-carousel"><div class="promo-track" id="promoTrack"></div></div>
+    <div class="promo-dots" id="promoDots"></div>
+  </div>
+
   <div class="temporada-banner" id="temporadaBanner"></div>
 
   <div id="menu"></div>
@@ -534,6 +546,21 @@
       <span id="horarioBadge">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
     </div>
     <button type="button" class="new-order-btn" id="perfilVerPedidoBtn" style="margin-top:16px;">Ver mis datos de pedido</button>
+    <button type="button" class="admin-btn secondary" id="perfilAuthBtn" style="margin-top:10px;">👤 Regístrate / Inicia sesión</button>
+  </div>
+</div>
+
+<div class="admin-overlay" id="authOverlay">
+  <div class="admin-box">
+    <button class="admin-close" id="authCloseBtn">✕</button>
+    <h2 id="authTitulo">Crea tu cuenta</h2>
+    <label>Correo</label>
+    <input type="email" id="authEmail" autocomplete="username">
+    <label>Contraseña</label>
+    <input type="password" id="authPassword" autocomplete="new-password">
+    <button class="admin-btn" id="authSubmitBtn">Crear cuenta</button>
+    <div class="admin-msg err" id="authMsg"></div>
+    <a href="#" id="authToggleLink" style="display:block;text-align:center;margin-top:14px;font-size:13px;font-weight:700;color:var(--rojo-2);">¿Ya tienes cuenta? Inicia sesión</a>
   </div>
 </div>
 
@@ -1171,6 +1198,8 @@ function controlsHTML(item){
     </div>`;
 }
 
+let promoCarouselIdx = 0;
+let promoCarouselTimer = null;
 function render(){
   iconoIdx = 0;
   const menuDiv = document.getElementById('menu');
@@ -1198,7 +1227,7 @@ function render(){
           ${agotado ? `<div class="agotado-badge">🚫 Agotado por hoy</div>` : `
           <div class="card-controls">
             <div class="card-price">$${item.price}</div>
-            <div class="controls-slot" id="controls-${item.id}">${controlsHTML(item)}</div>
+            <div class="controls-slot" id="controls-${item.id}" data-controls-for="${item.id}">${controlsHTML(item)}</div>
           </div>
           ${hasVariants(item) ? `<div class="units-box" id="units-${item.id}"></div>` : ''}`}
           ${cardStamp()}
@@ -1209,9 +1238,75 @@ function render(){
   }
   menuDiv.innerHTML = out;
   buildCategoryChips();
+  buildPromoCarousel();
   aplicarFiltroBusqueda();
 }
 render();
+
+function getPromoCarouselItems(){
+  const items = [];
+  if(menu['🔥 Promo de hoy'] && menu['🔥 Promo de hoy'][0]) items.push(menu['🔥 Promo de hoy'][0]);
+  const especiales = menu['Especiales'] || [];
+  especiales.forEach(it=>{ if(it.id !== 'promo-hoy') items.push(it); });
+  return items;
+}
+function promoSlideHTML(item){
+  const thumbData = itemThumbs[item.id];
+  const thumb = thumbData ? `<img class="card-thumb" src="${IMG[thumbData.thumb]}" alt="" onclick="abrirZoom('${thumbData.zoom}')">` : '';
+  return `
+    <div class="card promo-card" data-name="${item.name.toLowerCase()}">
+      <div class="card-top">
+        ${thumb}
+        <div class="card-name-row">
+          <div class="card-name">${item.name}</div>
+          ${item.desc?`<div class="card-desc">${item.desc}</div>`:''}
+        </div>
+      </div>
+      <div class="card-controls">
+        <div class="card-price">$${item.price}</div>
+        <div class="controls-slot" data-controls-for="${item.id}">${controlsHTML(item)}</div>
+      </div>
+    </div>`;
+}
+function aplicarPosicionCarousel(){
+  const track = document.getElementById('promoTrack');
+  if(!track) return;
+  track.style.transform = `translateX(-${promoCarouselIdx * 100}%)`;
+  document.querySelectorAll('#promoDots .promo-dot').forEach((d,i)=> d.classList.toggle('active', i===promoCarouselIdx));
+}
+function irASlidePromo(i){
+  promoCarouselIdx = i;
+  aplicarPosicionCarousel();
+  reiniciarRotacionCarousel();
+}
+function reiniciarRotacionCarousel(){
+  if(promoCarouselTimer){ clearInterval(promoCarouselTimer); promoCarouselTimer = null; }
+  const items = getPromoCarouselItems();
+  if(items.length > 1){
+    promoCarouselTimer = setInterval(()=>{
+      promoCarouselIdx = (promoCarouselIdx + 1) % items.length;
+      aplicarPosicionCarousel();
+    }, 4500);
+  }
+}
+function buildPromoCarousel(){
+  const wrap = document.getElementById('promoCarouselWrap');
+  const track = document.getElementById('promoTrack');
+  const dots = document.getElementById('promoDots');
+  if(!wrap || !track || !dots) return;
+  const items = getPromoCarouselItems();
+  if(items.length === 0){
+    wrap.style.display = 'none';
+    if(promoCarouselTimer){ clearInterval(promoCarouselTimer); promoCarouselTimer = null; }
+    return;
+  }
+  wrap.style.display = 'block';
+  track.innerHTML = items.map(promoSlideHTML).join('');
+  dots.innerHTML = items.map((_,i)=>`<button type="button" class="promo-dot${i===0?' active':''}" onclick="irASlidePromo(${i})" aria-label="Ver promo ${i+1}"></button>`).join('');
+  promoCarouselIdx = 0;
+  aplicarPosicionCarousel();
+  reiniciarRotacionCarousel();
+}
 
 function buildCategoryChips(){
   const row = document.getElementById('catsRow');
@@ -1315,8 +1410,7 @@ function changeQty(id, delta){
     renderUnits(id);
   }
   s.qty = newQty;
-  const slot = document.getElementById('controls-'+id);
-  if(slot) slot.innerHTML = controlsHTML(item);
+  document.querySelectorAll('[data-controls-for="'+id+'"]').forEach(slot=> slot.innerHTML = controlsHTML(item));
   updateCartBar();
   refreshExtraTargets();
 }
@@ -2066,10 +2160,73 @@ auth.onAuthStateChanged(user=>{
   document.getElementById('adminPanel').style.display = isAdmin ? 'block' : 'none';
   if(isAdmin){
     llenarFormularioAdmin();
-  } else if(user){
-    // sesión de otra cuenta que no es la admin
-    auth.signOut();
   }
+  // Nota: antes esto cerraba sesión de cualquier cuenta que no fuera la admin.
+  // Ahora los clientes también pueden tener su propia cuenta (registro/login en Perfil),
+  // así que solo se bloquea el panel admin, no se expulsa al cliente.
+  actualizarBotonAuthPerfil();
+});
+
+/* ===================== Cuenta de cliente (registro/login opcional) ===================== */
+let authMode = 'signup';
+function actualizarTextoAuthForm(){
+  const esSignup = authMode === 'signup';
+  document.getElementById('authTitulo').textContent = esSignup ? 'Crea tu cuenta' : 'Inicia sesión';
+  document.getElementById('authSubmitBtn').textContent = esSignup ? 'Crear cuenta' : 'Iniciar sesión';
+  document.getElementById('authToggleLink').textContent = esSignup ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate';
+  document.getElementById('authMsg').textContent = '';
+}
+function abrirAuthOverlay(){
+  document.getElementById('perfilOverlay').classList.remove('show');
+  actualizarTextoAuthForm();
+  document.getElementById('authEmail').value = '';
+  document.getElementById('authPassword').value = '';
+  document.getElementById('authOverlay').classList.add('show');
+}
+function traducirErrorAuth(err){
+  const map = {
+    'auth/email-already-in-use':'Ese correo ya tiene una cuenta, mejor inicia sesión.',
+    'auth/invalid-email':'Ese correo no es válido.',
+    'auth/weak-password':'La contraseña debe tener al menos 6 caracteres.',
+    'auth/wrong-password':'Contraseña incorrecta.',
+    'auth/user-not-found':'No encontramos una cuenta con ese correo.'
+  };
+  return (err && map[err.code]) || 'No se pudo completar, intenta de nuevo.';
+}
+function actualizarBotonAuthPerfil(){
+  const btn = document.getElementById('perfilAuthBtn');
+  if(!btn) return;
+  const user = auth.currentUser;
+  if(user && user.email !== ADMIN_EMAIL){
+    btn.textContent = '🚪 Cerrar sesión (' + user.email + ')';
+    btn.onclick = ()=> auth.signOut();
+  } else {
+    btn.textContent = '👤 Regístrate / Inicia sesión';
+    btn.onclick = abrirAuthOverlay;
+  }
+}
+document.getElementById('authCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('authOverlay').classList.remove('show');
+});
+document.getElementById('authToggleLink').addEventListener('click', (e)=>{
+  e.preventDefault();
+  authMode = authMode === 'signup' ? 'login' : 'signup';
+  actualizarTextoAuthForm();
+});
+document.getElementById('authSubmitBtn').addEventListener('click', ()=>{
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const msg = document.getElementById('authMsg');
+  msg.textContent = '';
+  if(!email || !password){ msg.textContent = 'Escribe tu correo y contraseña.'; return; }
+  const promesa = authMode === 'signup'
+    ? auth.createUserWithEmailAndPassword(email, password)
+    : auth.signInWithEmailAndPassword(email, password);
+  promesa.then(()=>{
+    document.getElementById('authOverlay').classList.remove('show');
+  }).catch(err=>{
+    msg.textContent = traducirErrorAuth(err);
+  });
 });
 
 function poblarListaAgotados(){
