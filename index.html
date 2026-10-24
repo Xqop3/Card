@@ -110,17 +110,52 @@
   .cat-chip img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;margin-bottom:6px;display:block;background:var(--crema);}
   .cat-chip span{font-size:10.5px;font-weight:800;color:var(--carbon);line-height:1.25;display:block;}
 
-  .vista-inicio{display:none;padding:34px 24px 44px;text-align:center;}
+  .vista-inicio{display:none;padding:28px 20px 44px;text-align:center;}
   .vista-inicio.active{display:block;}
-  .inicio-logo{width:150px;height:150px;object-fit:contain;margin:0 auto 16px;display:block;}
+  .inicio-hero{position:relative;margin:0 auto 10px;width:190px;height:190px;}
+  .inicio-hero::before{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle, rgba(242,141,36,0.22) 0%, rgba(242,141,36,0) 70%);
+  }
+  .inicio-logo{width:150px;height:150px;object-fit:contain;display:block;position:relative;margin:20px auto 0;}
+  .inicio-horario-chip{
+    display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--linea);
+    border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:var(--carbon);margin-bottom:14px;
+  }
   .inicio-saludo{font-family:'Lilita One',sans-serif;font-size:23px;color:var(--carbon);margin-bottom:6px;}
   .inicio-tagline{font-family:'Lilita One',sans-serif;font-size:16px;color:var(--rojo-2);margin-bottom:12px;}
-  .inicio-sub{font-size:14px;color:#6b5f4f;line-height:1.5;max-width:320px;margin:0 auto 24px;}
+  .inicio-sub{font-size:14px;color:#6b5f4f;line-height:1.5;max-width:320px;margin:0 auto 20px;}
   .inicio-cta{
     background:var(--rojo);color:#fff;border:none;border-radius:999px;padding:13px 32px;
     font-family:'Lilita One',sans-serif;font-size:15px;cursor:pointer;
     box-shadow:0 6px 16px rgba(242,141,36,0.4);
   }
+  .inicio-props{display:flex;gap:10px;margin:26px 0 4px;}
+  .inicio-prop{
+    flex:1;background:#fff;border:1.5px solid var(--linea);border-radius:14px;
+    padding:12px 6px;text-align:center;
+  }
+  .inicio-prop-icon{font-size:22px;display:block;margin-bottom:6px;}
+  .inicio-prop span.inicio-prop-text{font-size:10.5px;font-weight:800;color:var(--carbon);line-height:1.25;display:block;}
+  .inicio-section-title{
+    font-family:'Lilita One',sans-serif;font-size:17px;color:var(--carbon);
+    text-align:left;margin:28px 0 12px;
+  }
+  .inicio-teaser-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;text-align:left;}
+  .inicio-teaser-row::-webkit-scrollbar{display:none;}
+  .inicio-teaser-row .card{flex:0 0 150px;}
+  .inicio-teaser-row .card-thumb{aspect-ratio:1;margin-bottom:6px;}
+  .inicio-teaser-row .card-name{font-size:12.5px;}
+  .inicio-teaser-row .card-desc{display:none;}
+  .inicio-teaser-row .card-price{font-size:14px;}
+  .inicio-teaser-row .card-controls{margin-top:6px;}
+  .inicio-quicklinks{display:flex;gap:10px;margin-top:26px;}
+  .inicio-quicklink{
+    flex:1;background:#fff;border:1.5px solid var(--linea);border-radius:14px;
+    padding:12px 8px;font-size:12.5px;font-weight:800;color:var(--carbon);cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  .inicio-quicklink span.ql-icon{font-size:20px;}
   #vistaMenu{display:none;}
   #vistaMenu.active{display:block;}
 
@@ -456,11 +491,26 @@
   </header>
 
   <div class="vista-inicio active" id="vistaInicio">
-    <img class="inicio-logo" src="assets/logo-clasico.png" alt="Happy Burger">
+    <div class="inicio-hero"><img class="inicio-logo" src="assets/logo-clasico.png" alt="Happy Burger"></div>
+    <span class="inicio-horario-chip horario-badge" id="horarioBadgeInicio">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
     <h2 class="inicio-saludo">¡Bienvenido a Happy Burger! 🍔</h2>
     <p class="inicio-tagline">Lo clásico nunca pasa de moda.</p>
     <p class="inicio-sub">Arma tu pedido favorito y te lo llevamos calientito hasta tu puerta.</p>
     <button type="button" class="inicio-cta" id="inicioVerMenuBtn">Ver el menú</button>
+
+    <div class="inicio-props">
+      <div class="inicio-prop"><span class="inicio-prop-icon">🔥</span><span class="inicio-prop-text">Hecho al momento</span></div>
+      <div class="inicio-prop"><span class="inicio-prop-icon">🛵</span><span class="inicio-prop-text">Entrega rápida</span></div>
+      <div class="inicio-prop"><span class="inicio-prop-icon">⭐</span><span class="inicio-prop-text">Ingredientes frescos</span></div>
+    </div>
+
+    <div class="inicio-section-title">Favoritos de la casa</div>
+    <div class="inicio-teaser-row" id="inicioTeaserRow"></div>
+
+    <div class="inicio-quicklinks">
+      <button type="button" class="inicio-quicklink" id="inicioQuickOfertas"><span class="ql-icon">🏷️</span>Ver ofertas</button>
+      <button type="button" class="inicio-quicklink" id="inicioQuickPerfil"><span class="ql-icon">👤</span>Mi perfil</button>
+    </div>
   </div>
 
   <div id="vistaMenu">
@@ -567,7 +617,7 @@
     <img class="perfil-mascota" src="assets/logo-color.png" alt="Happy Burger">
     <h2 style="text-align:center;">Happy Burger</h2>
     <div class="info perfil-info" style="display:none;">
-      <span id="horarioBadge">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
+      <span class="horario-badge" id="horarioBadge">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
     </div>
     <button type="button" class="new-order-btn" id="perfilVerPedidoBtn" style="margin-top:16px;">Ver mis datos de pedido</button>
     <button type="button" class="admin-btn secondary" id="perfilAuthBtn" style="margin-top:10px;">👤 Regístrate / Inicia sesión</button>
@@ -1264,9 +1314,37 @@ function render(){
   menuDiv.innerHTML = out;
   buildCategoryChips();
   buildPromoCarousel();
+  buildInicioTeaser();
   aplicarFiltroBusqueda();
 }
 render();
+
+function buildInicioTeaser(){
+  const row = document.getElementById('inicioTeaserRow');
+  if(!row) return;
+  const favoritos = ['clasica','mexa','tenders','beast'];
+  let out = '';
+  favoritos.forEach(id=>{
+    const item = findItem(id);
+    if(!item) return;
+    const thumbData = itemThumbs[item.id];
+    const thumb = thumbData ? `<img class="card-thumb" src="${IMG[thumbData.thumb]}" alt="" onclick="abrirZoom('${thumbData.zoom}')">` : '';
+    out += `
+      <div class="card" data-name="${item.name.toLowerCase()}">
+        <div class="card-top">
+          ${thumb}
+          <div class="card-name-row">
+            <div class="card-name">${item.name}</div>
+          </div>
+        </div>
+        <div class="card-controls">
+          <div class="card-price">$${item.price}</div>
+          <div class="controls-slot" data-controls-for="${item.id}">${controlsHTML(item)}</div>
+        </div>
+      </div>`;
+  });
+  row.innerHTML = out;
+}
 
 function getPromoCarouselItems(){
   const items = [];
@@ -1415,6 +1493,10 @@ if(tabPerfilEl) tabPerfilEl.addEventListener('click', ()=>{
   const overlay = document.getElementById('perfilOverlay');
   if(overlay) overlay.classList.add('show');
 });
+const inicioQuickOfertasEl = document.getElementById('inicioQuickOfertas');
+if(inicioQuickOfertasEl) inicioQuickOfertasEl.addEventListener('click', ()=> tabOfertasEl && tabOfertasEl.click());
+const inicioQuickPerfilEl = document.getElementById('inicioQuickPerfil');
+if(inicioQuickPerfilEl) inicioQuickPerfilEl.addEventListener('click', ()=> tabPerfilEl && tabPerfilEl.click());
 const perfilCloseBtnEl = document.getElementById('perfilCloseBtn');
 if(perfilCloseBtnEl) perfilCloseBtnEl.addEventListener('click', ()=>{
   document.getElementById('perfilOverlay').classList.remove('show');
@@ -2136,18 +2218,20 @@ function proximaApertura(ahora){
 }
 
 function actualizarHorarioBadge(){
-  const badge = document.getElementById('horarioBadge');
-  if(!badge) return;
+  const badges = document.querySelectorAll('.horario-badge');
+  if(!badges.length) return;
   const ahora = new Date();
   const info = proximaApertura(ahora);
-  if(!info){ badge.innerHTML = '🕕 <b>Sáb–Dom</b> 6–11 PM'; return; }
-
-  if(ahora >= info.apertura && ahora < info.cierre && !cfg.cerradoHoy){
-    badge.innerHTML = `🟢 <b>Abierto</b> — cerramos en ${formatoDuracion(info.cierre - ahora)}`;
+  let html;
+  if(!info){
+    html = '🕕 <b>Sáb–Dom</b> 6–11 PM';
+  } else if(ahora >= info.apertura && ahora < info.cierre && !cfg.cerradoHoy){
+    html = `🟢 <b>Abierto</b> — cerramos en ${formatoDuracion(info.cierre - ahora)}`;
   } else {
     const cuando = info.esHoy ? 'hoy' : info.esManana ? 'mañana' : 'el ' + info.apertura.toLocaleDateString('es-MX', {weekday:'long'});
-    badge.innerHTML = `🔴 <b>Cerrado</b> — abrimos ${cuando} ${formatoHoraCorta(info.apertura)} (en ${formatoDuracion(info.apertura - ahora)})`;
+    html = `🔴 <b>Cerrado</b> — abrimos ${cuando} ${formatoHoraCorta(info.apertura)} (en ${formatoDuracion(info.apertura - ahora)})`;
   }
+  badges.forEach(badge=> badge.innerHTML = html);
 }
 actualizarHorarioBadge();
 setInterval(actualizarHorarioBadge, 30000);
