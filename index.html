@@ -443,6 +443,37 @@
   }
   .admin-btn.secondary{background:var(--carbon);margin-top:8px;}
   .admin-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;}
+
+  .cart-drawer-box{max-width:460px;}
+  .cart-drawer-empty{text-align:center;padding:30px 10px;color:#8a8278;}
+  .cart-drawer-empty .big{font-size:40px;margin-bottom:10px;}
+  .cart-drawer-line{
+    display:flex;gap:10px;align-items:flex-start;padding:12px 0;
+    border-bottom:1.5px solid var(--linea);
+  }
+  .cart-drawer-line:last-of-type{border-bottom:none;}
+  .cart-drawer-info{flex:1;min-width:0;}
+  .cart-drawer-name{font-family:'Lilita One',sans-serif;font-size:14.5px;color:var(--carbon);}
+  .cart-drawer-variant{font-size:11.5px;color:#8a8278;margin-top:2px;line-height:1.35;}
+  .cart-drawer-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:8px;flex-wrap:wrap;}
+  .cart-drawer-price{font-family:'Lilita One',sans-serif;font-size:14px;color:var(--carbon);}
+  .cart-drawer-remove{
+    background:none;border:none;color:var(--rojo-2);font-size:11.5px;font-weight:800;cursor:pointer;
+    text-decoration:underline;padding:0;
+  }
+  .cart-drawer-summary{
+    margin-top:6px;padding-top:14px;border-top:2px solid var(--linea);
+  }
+  .cart-drawer-subtotal{display:flex;justify-content:space-between;font-weight:800;font-size:15px;color:var(--carbon);margin-bottom:14px;}
+  .cart-drawer-cta{
+    display:block;width:100%;background:var(--rojo);color:#fff;border:none;border-radius:999px;
+    font-family:'Lilita One',sans-serif;font-size:15px;padding:13px;cursor:pointer;text-align:center;
+  }
+  .cart-drawer-cta:active{background:var(--rojo-2);}
+  .cart-drawer-gomenu{
+    display:block;width:100%;background:var(--rojo);color:#fff;border:none;border-radius:999px;
+    font-family:'Lilita One',sans-serif;font-size:14px;padding:12px;cursor:pointer;text-align:center;margin-top:16px;
+  }
   .admin-msg{margin-top:10px;font-size:13px;font-weight:700;}
   .admin-msg.err{color:var(--rojo-2);}
   .admin-msg.ok{color:var(--verde);}
@@ -663,6 +694,14 @@
     <div class="cart-total">Total: <span id="cartTotal">$0</span></div>
   </div>
   <button class="cart-btn" id="sendBtn" disabled>📲 Enviar pedido</button>
+</div>
+
+<div class="admin-overlay" id="cartDrawerOverlay">
+  <div class="admin-box cart-drawer-box">
+    <button class="admin-close" id="cartDrawerCloseBtn">✕</button>
+    <h2>🛍 Tu pedido</h2>
+    <div id="cartDrawerBody"></div>
+  </div>
 </div>
 
 <nav class="tab-bar">
@@ -1457,10 +1496,12 @@ function mostrarVista(nombre){
 }
 const tabFabEl = document.getElementById('tabFab');
 if(tabFabEl) tabFabEl.addEventListener('click', ()=>{
-  marcarTabActivo('tabMenu');
-  mostrarVista('menu');
-  const datos = document.querySelector('.datos');
-  if(datos) datos.scrollIntoView({behavior:'smooth', block:'start'});
+  renderCartDrawer();
+  document.getElementById('cartDrawerOverlay').classList.add('show');
+});
+const cartDrawerCloseBtnEl = document.getElementById('cartDrawerCloseBtn');
+if(cartDrawerCloseBtnEl) cartDrawerCloseBtnEl.addEventListener('click', ()=>{
+  document.getElementById('cartDrawerOverlay').classList.remove('show');
 });
 const tabInicioEl = document.getElementById('tabInicio');
 if(tabInicioEl) tabInicioEl.addEventListener('click', ()=>{
@@ -1579,6 +1620,81 @@ function updateCartBar(){
 
   document.getElementById('sendBtn').disabled = count === 0 || cfg.cerradoHoy;
   document.getElementById('emptyNote').style.display = count === 0 ? 'block' : 'none';
+
+  renderCartDrawer();
+}
+
+function cartLineVariantText(item, s){
+  if(!hasVariants(item)) return '';
+  return s.units.map((u,i)=>{
+    let variant = [];
+    if(item.typeChoice) variant.push(u.type);
+    if(item.proteinChoice) variant.push(u.protein);
+    if(item.sauceChoice) variant.push(textoSalsaUnit(u));
+    if(item.targetChoice && u.target) variant.push('para: '+u.target);
+    return variant.length ? `#${i+1}: ${variant.join(', ')}` : '';
+  }).filter(Boolean).join(' · ');
+}
+
+function renderCartDrawer(){
+  const body = document.getElementById('cartDrawerBody');
+  if(!body) return;
+  let out = '';
+  let count = 0, subtotal = 0;
+  for(const sec in menu){
+    menu[sec].forEach(item=>{
+      const s = state[item.id];
+      if(s && s.qty > 0){
+        count += s.qty;
+        const lineTotal = s.qty * item.price;
+        subtotal += lineTotal;
+        const variantTxt = cartLineVariantText(item, s);
+        out += `
+          <div class="cart-drawer-line">
+            <div class="cart-drawer-info">
+              <div class="cart-drawer-name">${item.name}</div>
+              ${variantTxt ? `<div class="cart-drawer-variant">${variantTxt}</div>` : ''}
+              <div class="cart-drawer-foot">
+                <div class="controls-slot" data-controls-for="${item.id}">${controlsHTML(item)}</div>
+                <button type="button" class="cart-drawer-remove" onclick="changeQty('${item.id}', -${s.qty})">✕ Quitar</button>
+              </div>
+            </div>
+            <div class="cart-drawer-price">$${lineTotal}</div>
+          </div>`;
+      }
+    });
+  }
+
+  if(count === 0){
+    body.innerHTML = `
+      <div class="cart-drawer-empty">
+        <div class="big">🛒</div>
+        <p>Tu carrito está vacío.</p>
+        <button type="button" class="cart-drawer-gomenu" id="cartDrawerGoMenuBtn">Ver el menú</button>
+      </div>`;
+    const goMenuBtn = document.getElementById('cartDrawerGoMenuBtn');
+    if(goMenuBtn) goMenuBtn.addEventListener('click', ()=>{
+      document.getElementById('cartDrawerOverlay').classList.remove('show');
+      const tabMenuBtn = document.getElementById('tabMenu');
+      if(tabMenuBtn) tabMenuBtn.click();
+    });
+    return;
+  }
+
+  out += `
+    <div class="cart-drawer-summary">
+      <div class="cart-drawer-subtotal"><span>Subtotal</span><span>$${subtotal}</span></div>
+      <button type="button" class="cart-drawer-cta" id="cartDrawerCheckoutBtn">Continuar / Ir a pagar</button>
+    </div>`;
+  body.innerHTML = out;
+  const checkoutBtn = document.getElementById('cartDrawerCheckoutBtn');
+  if(checkoutBtn) checkoutBtn.addEventListener('click', ()=>{
+    document.getElementById('cartDrawerOverlay').classList.remove('show');
+    marcarTabActivo('tabMenu');
+    mostrarVista('menu');
+    const datos = document.querySelector('.datos');
+    if(datos) datos.scrollIntoView({behavior:'smooth', block:'start'});
+  });
 }
 updateCartBar();
 
