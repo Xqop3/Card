@@ -189,8 +189,16 @@
   .items{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 16px 4px;}
   .promo-items{display:block;}
   .promo-carousel-wrap{padding:14px 16px 4px;}
-  .promo-carousel{overflow:hidden;border-radius:18px;}
+  .promo-carousel{overflow:hidden;border-radius:18px;position:relative;}
   .promo-track{display:flex;transition:transform .5s ease;}
+  .promo-nav{
+    position:absolute;top:50%;transform:translateY(-50%);z-index:2;
+    width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;
+    background:rgba(255,255,255,0.35);color:#fff;font-size:18px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .promo-nav-prev{left:8px;}
+  .promo-nav-next{right:8px;}
   .promo-track .promo-card{flex:0 0 100%;width:100%;margin:0;}
   .promo-dots{display:flex;justify-content:center;gap:6px;margin-top:10px;}
   .promo-dot{width:7px;height:7px;border-radius:50%;background:var(--linea);cursor:pointer;transition:all .2s;border:none;padding:0;}
@@ -210,7 +218,7 @@
     border:2px solid rgba(255,255,255,0.5);
   }
   .promo-card .card-name{color:#fff;font-size:18px;}
-  .promo-card .card-desc{color:rgba(255,255,255,0.92);-webkit-line-clamp:3;}
+  .promo-card .card-desc{color:rgba(255,255,255,0.92);}
   .promo-card .card-price{display:none;}
   .promo-card .stepper{grid-column:1;grid-row:2;justify-self:start;background:rgba(255,255,255,0.25);margin-top:6px;}
   .promo-card .stepper button{background:#fff;color:var(--rojo-2);}
@@ -252,7 +260,6 @@
   .card-price{font-family:'Lilita One',sans-serif;color:var(--rojo);font-size:17px;white-space:nowrap;}
   .card-desc{
     font-size:12.5px;color:#5c5045;margin-top:4px;line-height:1.4;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .card-desc strong{color:var(--rojo-2);}
   .promo-card .card-desc strong{color:var(--amarillo);}
@@ -563,7 +570,11 @@
   <div class="cats-row" id="catsRow"></div>
 
   <div class="promo-carousel-wrap" id="promoCarouselWrap" style="display:none;">
-    <div class="promo-carousel"><div class="promo-track" id="promoTrack"></div></div>
+    <div class="promo-carousel">
+      <div class="promo-track" id="promoTrack"></div>
+      <button type="button" class="promo-nav promo-nav-prev" onclick="promoPrev()" aria-label="Promo anterior">‹</button>
+      <button type="button" class="promo-nav promo-nav-next" onclick="promoNext()" aria-label="Promo siguiente">›</button>
+    </div>
     <div class="promo-dots" id="promoDots"></div>
   </div>
 
@@ -643,6 +654,7 @@
     <div class="campo" id="transferenciaSection" style="display:none;">
       <div class="happycard-box" style="background:#eef2ff;border-color:#c7d2fe;color:#1e2a5e;">
         💳 Datos para tu transferencia:<br>
+        Monto a transferir: <strong id="transferenciaMonto">$0</strong><br>
         Beneficiario: <strong>Happy Burger</strong><br>
         Banco: <strong>STP</strong><br>
         CLABE: <strong id="clabeTexto">646990404076293597</strong>
@@ -1463,6 +1475,16 @@ function irASlidePromo(i){
   aplicarPosicionCarousel();
   reiniciarRotacionCarousel();
 }
+function promoNext(){
+  const items = getPromoCarouselItems();
+  if(items.length === 0) return;
+  irASlidePromo((promoCarouselIdx + 1) % items.length);
+}
+function promoPrev(){
+  const items = getPromoCarouselItems();
+  if(items.length === 0) return;
+  irASlidePromo((promoCarouselIdx - 1 + items.length) % items.length);
+}
 function reiniciarRotacionCarousel(){
   if(promoCarouselTimer){ clearInterval(promoCarouselTimer); promoCarouselTimer = null; }
   const items = getPromoCarouselItems();
@@ -1659,6 +1681,9 @@ function updateCartBar(){
   if(descuento > 0) detalles.push(`-$${descuento} HappyCard`);
   if(detalles.length) textoTotal += ` (${detalles.join(', ')})`;
   document.getElementById('cartTotal').textContent = textoTotal;
+
+  const transferenciaMontoEl = document.getElementById('transferenciaMonto');
+  if(transferenciaMontoEl) transferenciaMontoEl.textContent = `$${totalFinal}`;
 
   document.getElementById('sendBtn').disabled = count === 0 || cfg.cerradoHoy;
   document.getElementById('emptyNote').style.display = count === 0 ? 'block' : 'none';
