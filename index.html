@@ -489,6 +489,23 @@
     display:block;width:100%;background:var(--rojo);color:#fff;border:none;border-radius:999px;
     font-family:'Lilita One',sans-serif;font-size:14px;padding:12px;cursor:pointer;text-align:center;margin-top:16px;
   }
+
+  .historial-box{max-width:460px;}
+  .historial-empty{text-align:center;padding:30px 10px;color:#8a8278;}
+  .historial-empty .big{font-size:40px;margin-bottom:10px;}
+  .historial-pedido{
+    border:1.5px solid var(--linea);border-radius:14px;padding:12px 14px;margin-bottom:12px;text-align:left;
+  }
+  .historial-fecha{font-size:11.5px;color:#8a8278;font-weight:700;margin-bottom:6px;}
+  .historial-items{font-size:13px;color:var(--carbon);line-height:1.5;margin-bottom:8px;}
+  .historial-nota{font-size:11.5px;color:var(--rojo-2);margin-bottom:8px;}
+  .historial-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .historial-total{font-family:'Lilita One',sans-serif;font-size:14.5px;color:var(--carbon);}
+  .historial-reorder-btn{
+    background:var(--rojo);color:#fff;border:none;border-radius:999px;
+    font-family:'Lilita One',sans-serif;font-size:12.5px;padding:8px 14px;cursor:pointer;
+  }
+  .historial-reorder-btn:active{background:var(--rojo-2);}
   .admin-msg{margin-top:10px;font-size:13px;font-weight:700;}
   .admin-msg.err{color:var(--rojo-2);}
   .admin-msg.ok{color:var(--verde);}
@@ -698,7 +715,7 @@
     <div class="info perfil-info" style="display:none;">
       <span class="horario-badge" id="horarioBadge">🕕 <b>Sáb–Dom</b> 6–11 PM</span>
     </div>
-    <button type="button" class="new-order-btn" id="perfilVerPedidoBtn" style="margin-top:16px;">Ver mis datos de pedido</button>
+    <button type="button" class="new-order-btn" id="perfilVerPedidoBtn" style="margin-top:16px;">📋 Historial de pedidos</button>
 
     <div id="perfilCuentaBox" style="display:none;text-align:left;">
       <div class="happycard-box" id="perfilCashbackBox" style="display:none;margin-bottom:14px;"></div>
@@ -717,6 +734,14 @@
     </div>
 
     <button type="button" class="admin-btn secondary" id="perfilAuthBtn" style="margin-top:10px;">👤 Regístrate / Inicia sesión</button>
+  </div>
+</div>
+
+<div class="admin-overlay" id="historialOverlay">
+  <div class="admin-box historial-box">
+    <button class="admin-close" id="historialCloseBtn">✕</button>
+    <h2 style="text-align:center;">📋 Historial de pedidos</h2>
+    <div id="historialLista"></div>
   </div>
 </div>
 
@@ -893,6 +918,7 @@ const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
 let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[], temporada:'ninguna' };
 let perfilDireccionesCache = []; // direcciones guardadas del cliente con cuenta activa
 let direccionCaptureMode = null; // {etiqueta, existingIndex} mientras se marca un punto en el mapa para el perfil
+let perfilTelefonoCache = ''; // teléfono del cliente logueado, usado para consultar su historial de pedidos
 
 const TEMPORADAS = {
   anonuevo: {
@@ -1648,12 +1674,107 @@ if(perfilCloseBtnEl) perfilCloseBtnEl.addEventListener('click', ()=>{
 });
 const perfilVerPedidoBtnEl = document.getElementById('perfilVerPedidoBtn');
 if(perfilVerPedidoBtnEl) perfilVerPedidoBtnEl.addEventListener('click', ()=>{
-  document.getElementById('perfilOverlay').classList.remove('show');
-  marcarTabActivo('tabMenu');
-  mostrarVista('menu');
-  const datos = document.querySelector('.datos');
-  if(datos) datos.scrollIntoView({behavior:'smooth', block:'start'});
+  abrirHistorialPedidos();
 });
+const historialCloseBtnEl = document.getElementById('historialCloseBtn');
+if(historialCloseBtnEl) historialCloseBtnEl.addEventListener('click', ()=>{
+  document.getElementById('historialOverlay').classList.remove('show');
+});
+
+function findItemByName(nombre){
+  for(const sec in menu){
+    const found = menu[sec].find(i=>i.name===nombre);
+    if(found) return found;
+  }
+}
+
+function abrirHistorialPedidos(){
+  const lista = document.getElementById('historialLista');
+  if(!perfilTelefonoCache || perfilTelefonoCache.replace(/\D/g,'').length !== 10){
+    lista.innerHTML = '<div class="historial-empty"><div class="big">📋</div>Guarda tu teléfono en tu perfil para ver tu historial de pedidos.</div>';
+    document.getElementById('historialOverlay').classList.add('show');
+    return;
+  }
+  lista.innerHTML = '<div class="historial-empty">Cargando...</div>';
+  document.getElementById('historialOverlay').classList.add('show');
+  pedidosRef.where('telefono', '==', perfilTelefonoCache.replace(/\D/g,'')).get().then(snap=>{
+    const pedidos = [];
+    snap.forEach(doc=> pedidos.push(doc.data()));
+    pedidos.sort((a,b)=>{
+      const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+    renderHistorialPedidos(pedidos.slice(0, 20));
+  }).catch(()=>{
+    lista.innerHTML = '<div class="historial-empty"><div class="big">😕</div>No pudimos cargar tu historial, intenta de nuevo.</div>';
+  });
+}
+
+function renderHistorialPedidos(pedidos){
+  const lista = document.getElementById('historialLista');
+  if(!pedidos.length){
+    lista.innerHTML = '<div class="historial-empty"><div class="big">📋</div>Aún no tienes pedidos.</div>';
+    return;
+  }
+  lista.innerHTML = pedidos.map((p, idx)=>{
+    const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleDateString('es-MX', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+    const itemsTxt = (p.items || []).map(it=> `${it.cantidad>1 && !it.nombre.includes('(') ? it.cantidad+'x ' : ''}${it.nombre}`).join('<br>');
+    return `
+      <div class="historial-pedido">
+        <div class="historial-fecha">${fecha}</div>
+        <div class="historial-items">${itemsTxt}</div>
+        <div class="historial-foot">
+          <span class="historial-total">$${p.total}</span>
+          <button type="button" class="historial-reorder-btn" onclick="volverAPedir(${idx})">🔁 Volver a pedir</button>
+        </div>
+      </div>`;
+  }).join('');
+  window._historialCache = pedidos;
+}
+
+function volverAPedir(idx){
+  const pedido = (window._historialCache || [])[idx];
+  if(!pedido) return;
+  const noDisponibles = [];
+  (pedido.items || []).forEach(entry=>{
+    const match = entry.nombre.match(/^(.*?)(?:\s\((.*)\))?$/);
+    const baseName = match ? match[1] : entry.nombre;
+    const variantTxt = match ? match[2] : '';
+    const item = findItemByName(baseName);
+    if(!item || (cfg.agotados && cfg.agotados.includes(item.id))){
+      noDisponibles.push(baseName);
+      return;
+    }
+    if(hasVariants(item)){
+      changeQty(item.id, 1);
+      const units = state[item.id].units;
+      const u = units[units.length - 1];
+      if(variantTxt && item.sauceChoice){
+        const naturalMatch = variantTxt.match(/natural, salsa aparte: (.+)/);
+        const salsaMatch = variantTxt.match(/salsa: (.+)/);
+        if(naturalMatch && sauceOptions.includes(naturalMatch[1])){
+          u.sauce = NATURAL_OPTION;
+          u.sauceAparte = naturalMatch[1];
+        } else if(salsaMatch && sauceOptions.includes(salsaMatch[1])){
+          u.sauce = salsaMatch[1];
+        }
+      }
+      renderUnits(item.id);
+    } else {
+      changeQty(item.id, entry.cantidad || 1);
+    }
+  });
+  document.getElementById('historialOverlay').classList.remove('show');
+  document.getElementById('perfilOverlay').classList.remove('show');
+  if(noDisponibles.length){
+    alert('Se agregó tu pedido anterior. Estos productos ya no están disponibles y no se agregaron: ' + noDisponibles.join(', '));
+  } else {
+    alert('Se agregó tu pedido anterior al carrito. Revisa las salsas/variantes antes de enviarlo.');
+  }
+  const cartFab = document.getElementById('tabFab');
+  if(cartFab) cartFab.click();
+}
 
 function abrirZoom(imgKey){
   document.getElementById('zoomImg').src = IMG[imgKey];
@@ -1725,7 +1846,7 @@ function updateCartBar(){
   const transferenciaMontoEl = document.getElementById('transferenciaMonto');
   if(transferenciaMontoEl) transferenciaMontoEl.textContent = `$${totalFinal}`;
 
-  document.getElementById('sendBtn').disabled = count === 0 || cfg.cerradoHoy;
+  document.getElementById('sendBtn').disabled = count === 0 || pedidosBloqueados();
   document.getElementById('emptyNote').style.display = count === 0 ? 'block' : 'none';
 
   renderCartDrawer();
@@ -2314,7 +2435,8 @@ function enviarPorWhatsapp(){
 }
 
 document.getElementById('sendBtn').addEventListener('click', ()=>{
-  if(cfg.cerradoHoy){ alert('Hoy no estamos tomando pedidos.'); return; }
+  if(cfg.cerradoHoy){ alert(cfg.mensajeCerrado || 'Hoy no estamos tomando pedidos.'); return; }
+  if(!dentroDeHorarioAutomatico(new Date())){ alert('Estamos fuera de horario (Sáb y Dom, 6–11 PM). Vuelve a intentarlo cuando abramos.'); return; }
 
   const nombreInput = document.getElementById('nombre');
   const telefonoInput = document.getElementById('telefono');
@@ -2418,16 +2540,7 @@ function applySettings(s){
     temporada: s.temporada || 'ninguna'
   };
 
-  const banner = document.getElementById('bannerCerrado');
-  const wrap = document.getElementById('wrap');
-  if(cfg.cerradoHoy){
-    banner.textContent = cfg.mensajeCerrado;
-    banner.style.display = 'block';
-    wrap.classList.add('form-disabled');
-  } else {
-    banner.style.display = 'none';
-    wrap.classList.remove('form-disabled');
-  }
+  actualizarBloqueoPedidos();
 
   const radioEnvio = document.getElementById('radioEnvio');
   const avisoSinEnvio = document.getElementById('avisoSinEnvio');
@@ -2503,6 +2616,44 @@ function formatoDuracion(ms){
   return `${min}min`;
 }
 
+// true si, por horario (Sáb/Dom 6–11PM), ahora mismo deberíamos estar abiertos — sin contar el cierre manual.
+function dentroDeHorarioAutomatico(ahora){
+  const info = proximaApertura(ahora);
+  return !!(info && ahora >= info.apertura && ahora < info.cierre);
+}
+
+// true si NO se pueden tomar pedidos ahora mismo, ya sea por cierre manual o por estar fuera del horario Sáb/Dom 6–11PM.
+function pedidosBloqueados(){
+  return cfg.cerradoHoy || !dentroDeHorarioAutomatico(new Date());
+}
+
+// Aplica (o quita) el bloqueo visual del formulario de pedido: banner + deshabilitar #wrap.
+// Distingue el mensaje: si es cierre manual del dueño, su mensaje personalizado; si es solo fuera de horario, uno genérico.
+function actualizarBloqueoPedidos(){
+  const banner = document.getElementById('bannerCerrado');
+  const wrap = document.getElementById('wrap');
+  if(!banner || !wrap) return;
+  const ahora = new Date();
+  if(cfg.cerradoHoy){
+    banner.textContent = cfg.mensajeCerrado;
+    banner.style.display = 'block';
+    wrap.classList.add('form-disabled');
+    return;
+  }
+  if(!dentroDeHorarioAutomatico(ahora)){
+    const info = proximaApertura(ahora);
+    const cuando = !info ? '' : info.esHoy ? 'hoy' : info.esManana ? 'mañana' : 'el ' + info.apertura.toLocaleDateString('es-MX', {weekday:'long'});
+    banner.textContent = info
+      ? `🕕 Fuera de horario — abrimos ${cuando} ${formatoHoraCorta(info.apertura)}`
+      : '🕕 Por ahora solo abrimos Sáb y Dom, 6–11 PM.';
+    banner.style.display = 'block';
+    wrap.classList.add('form-disabled');
+    return;
+  }
+  banner.style.display = 'none';
+  wrap.classList.remove('form-disabled');
+}
+
 // Busca el próximo bloque de apertura (sábado o domingo, 6–11 PM), saltando "hoy" si está cerrado a mano.
 function proximaApertura(ahora){
   for(let i=0; i<8; i++){
@@ -2535,8 +2686,13 @@ function actualizarHorarioBadge(){
   }
   badges.forEach(badge=> badge.innerHTML = html);
 }
-actualizarHorarioBadge();
-setInterval(actualizarHorarioBadge, 30000);
+function tickHorario(){
+  actualizarHorarioBadge();
+  actualizarBloqueoPedidos();
+  updateCartBar();
+}
+tickHorario();
+setInterval(tickHorario, 30000);
 
 settingsRef.onSnapshot(
   doc => applySettings(doc.exists ? doc.data() : {}),
@@ -2598,6 +2754,7 @@ auth.onAuthStateChanged(user=>{
   // así que solo se bloquea el panel admin, no se expulsa al cliente.
   if(!user || isAdmin){
     perfilDireccionesCache = [];
+    perfilTelefonoCache = '';
     aplicarClienteLogueadoEnCheckout(null);
   }
   actualizarBotonAuthPerfil();
@@ -2672,6 +2829,7 @@ function cargarPerfilCuenta(uid){
     document.getElementById('cuentaTelefono').value = datos.telefono || '';
     perfilDireccionesCache = normalizarDirecciones(datos);
     renderDireccionesPerfil();
+    perfilTelefonoCache = datos.telefono || '';
     aplicarClienteLogueadoEnCheckout({ nombre: datos.nombre, telefono: datos.telefono, direcciones: perfilDireccionesCache });
     pintarCashbackPerfil(datos.telefono);
   }).catch(()=>{});
