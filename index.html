@@ -3138,11 +3138,15 @@ if(ofertaCancelarBtnEl) ofertaCancelarBtnEl.addEventListener('click', ()=>{
   document.getElementById('ofertaFormBox').style.display = 'none';
 });
 
+let ofertaSubiendoImagen = false;
 const ofertaImagenUploadEl = document.getElementById('ofertaImagenUpload');
 if(ofertaImagenUploadEl) ofertaImagenUploadEl.addEventListener('change', (e)=>{
   const file = e.target.files[0];
   if(!file) return;
   const msg = document.getElementById('ofertaUploadMsg');
+  const guardarBtn = document.getElementById('ofertaGuardarBtn');
+  ofertaSubiendoImagen = true;
+  if(guardarBtn) guardarBtn.disabled = true;
   msg.className = 'admin-msg';
   msg.textContent = 'Subiendo imagen...';
   const nombreArchivo = Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9._-]/g, '');
@@ -3156,7 +3160,13 @@ if(ofertaImagenUploadEl) ofertaImagenUploadEl.addEventListener('change', (e)=>{
     msg.textContent = 'Imagen subida ✅';
   }).catch(err=>{
     msg.className = 'admin-msg err';
-    msg.textContent = 'Error al subir imagen: ' + err.message;
+    const esPermiso = err && (err.code === 'storage/unauthorized' || err.code === 'storage/unauthenticated' || err.code === 'storage/unknown');
+    msg.textContent = esPermiso
+      ? 'No se pudo subir (falta habilitar Firebase Storage o sus reglas de seguridad). Avísale a soporte con este código: ' + err.code
+      : 'Error al subir imagen: ' + err.message;
+  }).finally(()=>{
+    ofertaSubiendoImagen = false;
+    if(guardarBtn) guardarBtn.disabled = false;
   });
 });
 
@@ -3172,6 +3182,7 @@ if(ofertaGuardarBtnEl) ofertaGuardarBtnEl.addEventListener('click', ()=>{
   const imagenId = document.getElementById('ofertaImagenSelect').value;
   const activa = document.getElementById('ofertaActivaInput').checked;
   if(!nombre){ alert('Ponle un nombre a la oferta.'); return; }
+  if(ofertaSubiendoImagen){ alert('Espera a que termine de subirse la imagen antes de guardar.'); return; }
   if(!cfg.ofertas) cfg.ofertas = [];
   if(ofertaEditandoId){
     const o = cfg.ofertas.find(x=>x.id===ofertaEditandoId);
