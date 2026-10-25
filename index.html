@@ -569,7 +569,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 </head>
 <body>
 <div id="bannerCerrado" class="banner-cerrado" style="display:none;"></div>
@@ -1237,11 +1236,12 @@ function sincronizarOfertasEnMenu(){
     price: Number(o.precio) || 0,
     desc: o.desc || '',
     imagenId: o.imagenId || '',
-    imagenUrl: o.imagenUrl || ''
+    imagenUrl: o.imagenUrl || '',
+    imagenData: o.imagenData || ''
   }));
   const firma = JSON.stringify(nuevosItems);
   const anteriores = menu['Ofertas'] || [];
-  const firmaAnterior = JSON.stringify(anteriores.map(i=>({id:i.id,name:i.name,price:i.price,desc:i.desc,imagenId:i.imagenId,imagenUrl:i.imagenUrl})));
+  const firmaAnterior = JSON.stringify(anteriores.map(i=>({id:i.id,name:i.name,price:i.price,desc:i.desc,imagenId:i.imagenId,imagenUrl:i.imagenUrl,imagenData:i.imagenData})));
   if(firma === firmaAnterior) return false; // sin cambios
 
   const idsNuevos = new Set(nuevosItems.map(i=>i.id));
@@ -1532,8 +1532,9 @@ function getPromoCarouselItems(){
 }
 function promoSlideHTML(item){
   const thumbData = itemThumbs[item.id];
-  const thumb = item.imagenUrl
-    ? `<img class="card-thumb" src="${item.imagenUrl}" alt="">`
+  const imagenPropia = item.imagenData || item.imagenUrl;
+  const thumb = imagenPropia
+    ? `<img class="card-thumb" src="${imagenPropia}" alt="">`
     : (thumbData ? `<img class="card-thumb" src="${IMG[thumbData.thumb]}" alt="" onclick="abrirZoom('${thumbData.zoom}')">` : '');
   return `
     <div class="card promo-card" data-name="${item.name.toLowerCase()}">
@@ -3092,6 +3093,51 @@ function poblarListaAgotados(){
 /* ===================== Ofertas (admin: lista + alta/edición + subida de imagen) ===================== */
 let ofertaEditandoId = null;
 let ofertaImagenUrlPendiente = '';
+let ofertaImagenDataPendiente = '';
+
+const OFERTA_IMG_MAX_LADO = 800;
+const OFERTA_IMG_MAX_BYTES = 200 * 1024; // objetivo cómodo
+const OFERTA_IMG_MAX_BYTES_DURO = 300 * 1024; // tope duro, si se pasa de aquí se rechaza
+
+function comprimirImagenOferta(file){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = ()=> reject(new Error('No se pudo leer el archivo.'));
+    reader.onload = ()=>{
+      img.onerror = ()=> reject(new Error('El archivo no es una imagen válida.'));
+      img.onload = ()=>{
+        let w = img.naturalWidth, h = img.naturalHeight;
+        const ladoMayor = Math.max(w, h);
+        if(ladoMayor > OFERTA_IMG_MAX_LADO){
+          const factor = OFERTA_IMG_MAX_LADO / ladoMayor;
+          w = Math.round(w * factor);
+          h = Math.round(h * factor);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        let calidad = 0.7;
+        let dataUrl = canvas.toDataURL('image/jpeg', calidad);
+        let intentos = 0;
+        while(dataUrl.length > OFERTA_IMG_MAX_BYTES && calidad > 0.3 && intentos < 6){
+          calidad -= 0.1;
+          dataUrl = canvas.toDataURL('image/jpeg', calidad);
+          intentos++;
+        }
+        if(dataUrl.length > OFERTA_IMG_MAX_BYTES_DURO){
+          reject(new Error('La imagen sigue pesando mucho incluso comprimida. Prueba con una foto más simple o de menor resolución.'));
+          return;
+        }
+        resolve(dataUrl);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 function renderOfertasAdminLista(){
   const cont = document.getElementById('ofertasAdminLista');
@@ -3123,9 +3169,11 @@ function abrirFormularioOferta(id){
   document.getElementById('ofertaActivaInput').checked = oferta ? !!oferta.activa : true;
   document.getElementById('ofertaImagenUpload').value = '';
   const preview = document.getElementById('ofertaImagenPreview');
-  if(oferta && oferta.imagenUrl){ preview.src = oferta.imagenUrl; preview.style.display = 'block'; }
+  const imagenPropia = oferta && (oferta.imagenData || oferta.imagenUrl);
+  if(imagenPropia){ preview.src = imagenPropia; preview.style.display = 'block'; }
   else { preview.style.display = 'none'; preview.src = ''; }
   ofertaImagenUrlPendiente = oferta ? (oferta.imagenUrl || '') : '';
+  ofertaImagenDataPendiente = oferta ? (oferta.imagenData || '') : '';
   document.getElementById('ofertaUploadMsg').textContent = '';
   document.getElementById('ofertaFormBox').style.display = 'block';
 }
@@ -3148,22 +3196,18 @@ if(ofertaImagenUploadEl) ofertaImagenUploadEl.addEventListener('change', (e)=>{
   ofertaSubiendoImagen = true;
   if(guardarBtn) guardarBtn.disabled = true;
   msg.className = 'admin-msg';
-  msg.textContent = 'Subiendo imagen...';
-  const nombreArchivo = Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9._-]/g, '');
-  const ref = firebase.storage().ref().child('ofertas/' + nombreArchivo);
-  ref.put(file).then(snap=> snap.ref.getDownloadURL()).then(url=>{
-    ofertaImagenUrlPendiente = url;
+  msg.textContent = 'Procesando imagen...';
+  comprimirImagenOferta(file).then(dataUrl=>{
+    ofertaImagenDataPendiente = dataUrl;
+    ofertaImagenUrlPendiente = ''; // una nueva imagen propia reemplaza cualquier URL vieja
     const preview = document.getElementById('ofertaImagenPreview');
-    preview.src = url;
+    preview.src = dataUrl;
     preview.style.display = 'block';
     msg.className = 'admin-msg ok';
-    msg.textContent = 'Imagen subida ✅';
+    msg.textContent = `Imagen lista (~${Math.round(dataUrl.length/1024)} KB) ✅`;
   }).catch(err=>{
     msg.className = 'admin-msg err';
-    const esPermiso = err && (err.code === 'storage/unauthorized' || err.code === 'storage/unauthenticated' || err.code === 'storage/unknown');
-    msg.textContent = esPermiso
-      ? 'No se pudo subir (falta habilitar Firebase Storage o sus reglas de seguridad). Avísale a soporte con este código: ' + err.code
-      : 'Error al subir imagen: ' + err.message;
+    msg.textContent = err.message || 'No se pudo procesar la imagen.';
   }).finally(()=>{
     ofertaSubiendoImagen = false;
     if(guardarBtn) guardarBtn.disabled = false;
@@ -3186,11 +3230,11 @@ if(ofertaGuardarBtnEl) ofertaGuardarBtnEl.addEventListener('click', ()=>{
   if(!cfg.ofertas) cfg.ofertas = [];
   if(ofertaEditandoId){
     const o = cfg.ofertas.find(x=>x.id===ofertaEditandoId);
-    if(o) Object.assign(o, { nombre, precio, desc, imagenId, imagenUrl: ofertaImagenUrlPendiente, activa });
+    if(o) Object.assign(o, { nombre, precio, desc, imagenId, imagenUrl: ofertaImagenUrlPendiente, imagenData: ofertaImagenDataPendiente, activa });
   } else {
     cfg.ofertas.push({
       id: 'oferta-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      nombre, precio, desc, imagenId, imagenUrl: ofertaImagenUrlPendiente, activa
+      nombre, precio, desc, imagenId, imagenUrl: ofertaImagenUrlPendiente, imagenData: ofertaImagenDataPendiente, activa
     });
   }
   document.getElementById('ofertaFormBox').style.display = 'none';
