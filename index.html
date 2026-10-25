@@ -149,6 +149,22 @@
   .inicio-teaser-row .card-desc{display:none;}
   .inicio-teaser-row .card-price{font-size:14px;}
   .inicio-teaser-row .card-controls{margin-top:6px;}
+  .inicio-cashback-banner{
+    display:none;background:linear-gradient(135deg, var(--rojo), var(--rojo-2));
+    color:#fff;border-radius:18px;padding:16px;margin-top:22px;text-align:left;
+  }
+  .inicio-cashback-banner.show{display:block;}
+  .inicio-cashback-banner h3{font-family:'Lilita One',sans-serif;font-size:16px;margin-bottom:4px;}
+  .inicio-cashback-banner p{font-size:12.5px;opacity:0.95;line-height:1.4;margin-bottom:12px;}
+  .inicio-cashback-banner button{
+    background:#fff;color:var(--rojo-2);border:none;border-radius:999px;
+    padding:9px 18px;font-weight:800;font-size:13px;cursor:pointer;
+  }
+  .inicio-cashback-chip{
+    display:none;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--linea);
+    border-radius:14px;padding:12px 14px;margin-top:22px;font-size:13.5px;font-weight:800;color:var(--carbon);
+  }
+  .inicio-cashback-chip.show{display:flex;}
   .inicio-quicklinks{display:flex;gap:10px;margin-top:26px;}
   .inicio-quicklink{
     flex:1;background:#fff;border:1.5px solid var(--linea);border-radius:14px;
@@ -545,6 +561,13 @@
       <div class="inicio-prop"><span class="inicio-prop-icon">⭐</span><span class="inicio-prop-text">Ingredientes frescos</span></div>
     </div>
 
+    <div class="inicio-cashback-banner" id="inicioCashbackBanner">
+      <h3>💰 ¡Gana cashback en cada pedido!</h3>
+      <p>Regístrate gratis y acumula 3% de cashback en cada compra, para usarlo como descuento en tu próximo pedido.</p>
+      <button type="button" id="inicioCashbackCtaBtn">Regístrate gratis</button>
+    </div>
+    <div class="inicio-cashback-chip" id="inicioCashbackChip"></div>
+
     <div class="inicio-section-title">Favoritos de la casa</div>
     <div class="inicio-teaser-row" id="inicioTeaserRow"></div>
 
@@ -678,6 +701,7 @@
     <button type="button" class="new-order-btn" id="perfilVerPedidoBtn" style="margin-top:16px;">Ver mis datos de pedido</button>
 
     <div id="perfilCuentaBox" style="display:none;text-align:left;">
+      <div class="happycard-box" id="perfilCashbackBox" style="display:none;margin-bottom:14px;"></div>
       <label>Nombre</label>
       <input type="text" id="cuentaNombre" placeholder="¿Cómo te llamas?">
       <label>Teléfono</label>
@@ -1613,6 +1637,11 @@ const inicioQuickOfertasEl = document.getElementById('inicioQuickOfertas');
 if(inicioQuickOfertasEl) inicioQuickOfertasEl.addEventListener('click', ()=> tabOfertasEl && tabOfertasEl.click());
 const inicioQuickPerfilEl = document.getElementById('inicioQuickPerfil');
 if(inicioQuickPerfilEl) inicioQuickPerfilEl.addEventListener('click', ()=> tabPerfilEl && tabPerfilEl.click());
+const inicioCashbackCtaBtnEl = document.getElementById('inicioCashbackCtaBtn');
+if(inicioCashbackCtaBtnEl) inicioCashbackCtaBtnEl.addEventListener('click', ()=>{
+  if(tabPerfilEl) tabPerfilEl.click();
+  abrirAuthOverlay();
+});
 const perfilCloseBtnEl = document.getElementById('perfilCloseBtn');
 if(perfilCloseBtnEl) perfilCloseBtnEl.addEventListener('click', ()=>{
   document.getElementById('perfilOverlay').classList.remove('show');
@@ -2615,6 +2644,11 @@ function actualizarBotonAuthPerfil(){
     btn.onclick = abrirAuthOverlay;
   }
   document.getElementById('perfilCuentaBox').style.display = esClienteLogueado ? 'block' : 'none';
+  const banner = document.getElementById('inicioCashbackBanner');
+  const chip = document.getElementById('inicioCashbackChip');
+  if(banner) banner.classList.toggle('show', !esClienteLogueado);
+  if(chip) chip.classList.toggle('show', esClienteLogueado);
+  if(!esClienteLogueado && chip) chip.innerHTML = '';
   if(esClienteLogueado) cargarPerfilCuenta(user.uid);
 }
 
@@ -2639,7 +2673,38 @@ function cargarPerfilCuenta(uid){
     perfilDireccionesCache = normalizarDirecciones(datos);
     renderDireccionesPerfil();
     aplicarClienteLogueadoEnCheckout({ nombre: datos.nombre, telefono: datos.telefono, direcciones: perfilDireccionesCache });
+    pintarCashbackPerfil(datos.telefono);
   }).catch(()=>{});
+}
+
+// Mismo saldo "HappyCard" que ya se usa en el checkout (colección "clientes", por teléfono),
+// solo que aquí se consulta con el teléfono guardado en el perfil del cliente logueado.
+function pintarCashbackPerfil(telefono){
+  const box = document.getElementById('perfilCashbackBox');
+  const chip = document.getElementById('inicioCashbackChip');
+  const tel = (telefono || '').replace(/\D/g,'');
+  if(tel.length !== 10){
+    box.style.display = 'block';
+    box.innerHTML = '💰 Guarda tu teléfono para empezar a ganar cashback.';
+    if(chip) chip.innerHTML = '💰 Guarda tu teléfono en Perfil para empezar a ganar cashback.';
+    return;
+  }
+  box.style.display = 'block';
+  box.innerHTML = '💰 Consultando tu cashback…';
+  if(chip) chip.innerHTML = '💰 Consultando tu cashback…';
+  clientesRef.doc(tel).get().then(doc=>{
+    const datos = doc.exists ? doc.data() : {};
+    const saldo = Math.floor(datos.saldo || 0);
+    const texto = saldo > 0
+      ? `💰 Tu cashback: <strong>$${saldo}</strong>`
+      : '💰 Aún no tienes cashback — haz tu primer pedido y empieza a acumular.';
+    box.innerHTML = texto;
+    if(chip) chip.innerHTML = texto;
+  }).catch(()=>{
+    const texto = '💰 No se pudo consultar tu cashback ahorita, intenta más tarde.';
+    box.innerHTML = texto;
+    if(chip) chip.innerHTML = texto;
+  });
 }
 
 function renderDireccionesPerfil(){
