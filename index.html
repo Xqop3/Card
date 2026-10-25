@@ -189,16 +189,8 @@
   .items{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 16px 4px;}
   .promo-items{display:block;}
   .promo-carousel-wrap{padding:14px 16px 4px;}
-  .promo-carousel{overflow:hidden;border-radius:18px;position:relative;}
+  .promo-carousel{overflow:hidden;border-radius:18px;position:relative;touch-action:pan-y;}
   .promo-track{display:flex;transition:transform .5s ease;}
-  .promo-nav{
-    position:absolute;top:50%;transform:translateY(-50%);z-index:2;
-    width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;
-    background:rgba(255,255,255,0.35);color:#fff;font-size:18px;line-height:1;
-    display:flex;align-items:center;justify-content:center;
-  }
-  .promo-nav-prev{left:8px;}
-  .promo-nav-next{right:8px;}
   .promo-track .promo-card{flex:0 0 100%;width:100%;margin:0;}
   .promo-dots{display:flex;justify-content:center;gap:6px;margin-top:10px;}
   .promo-dot{width:7px;height:7px;border-radius:50%;background:var(--linea);cursor:pointer;transition:all .2s;border:none;padding:0;}
@@ -570,10 +562,8 @@
   <div class="cats-row" id="catsRow"></div>
 
   <div class="promo-carousel-wrap" id="promoCarouselWrap" style="display:none;">
-    <div class="promo-carousel">
+    <div class="promo-carousel" id="promoCarousel">
       <div class="promo-track" id="promoTrack"></div>
-      <button type="button" class="promo-nav promo-nav-prev" onclick="promoPrev()" aria-label="Promo anterior">‹</button>
-      <button type="button" class="promo-nav promo-nav-next" onclick="promoNext()" aria-label="Promo siguiente">›</button>
     </div>
     <div class="promo-dots" id="promoDots"></div>
   </div>
@@ -1485,6 +1475,26 @@ function promoPrev(){
   if(items.length === 0) return;
   irASlidePromo((promoCarouselIdx - 1 + items.length) % items.length);
 }
+let promoSwipeStartX = null, promoSwipeStartY = null;
+function initPromoSwipe(){
+  const el = document.getElementById('promoCarousel');
+  if(!el || el.dataset.swipeBound) return;
+  el.dataset.swipeBound = '1';
+  el.addEventListener('touchstart', (e)=>{
+    const t = e.changedTouches[0];
+    promoSwipeStartX = t.clientX;
+    promoSwipeStartY = t.clientY;
+  }, { passive:true });
+  el.addEventListener('touchend', (e)=>{
+    if(promoSwipeStartX === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - promoSwipeStartX;
+    const dy = t.clientY - promoSwipeStartY;
+    promoSwipeStartX = null; promoSwipeStartY = null;
+    if(Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+    if(dx < 0) promoNext(); else promoPrev();
+  }, { passive:true });
+}
 function reiniciarRotacionCarousel(){
   if(promoCarouselTimer){ clearInterval(promoCarouselTimer); promoCarouselTimer = null; }
   const items = getPromoCarouselItems();
@@ -1512,6 +1522,7 @@ function buildPromoCarousel(){
   promoCarouselIdx = 0;
   aplicarPosicionCarousel();
   reiniciarRotacionCarousel();
+  initPromoSwipe();
 }
 
 function buildCategoryChips(){
