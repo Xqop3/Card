@@ -174,6 +174,13 @@
   .inicio-quicklink span.ql-icon{font-size:20px;}
   #vistaMenu{display:none;}
   #vistaMenu.active{display:block;}
+  #vistaOfertas{display:none;padding:26px 0 40px;}
+  #vistaOfertas.active{display:block;}
+  .ofertas-header{padding:0 20px;margin-bottom:6px;}
+  .ofertas-header h2{font-family:'Lilita One',sans-serif;font-size:21px;color:var(--carbon);}
+  .ofertas-sub{font-size:13px;color:#8a8278;margin-top:4px;}
+  .ofertas-empty{text-align:center;padding:50px 20px;color:#8a8278;}
+  .ofertas-empty .big{font-size:40px;margin-bottom:10px;}
 
   .sec-head{
     color:var(--carbon);
@@ -459,6 +466,20 @@
   .admin-btn.secondary{background:var(--carbon);margin-top:8px;}
   .admin-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;}
 
+  .ofertas-admin-lista{margin-top:6px;}
+  .oferta-admin-row{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    border:1.5px solid var(--linea);border-radius:10px;padding:10px 12px;margin-bottom:8px;
+  }
+  .oferta-admin-info{flex:1;min-width:0;}
+  .oferta-admin-nombre{font-weight:800;font-size:13.5px;}
+  .oferta-admin-precio{font-size:12px;color:#8a8278;margin-top:2px;}
+  .oferta-admin-actions{display:flex;gap:4px;align-items:center;flex-shrink:0;}
+  .oferta-admin-actions button{background:none;border:none;font-size:17px;cursor:pointer;padding:4px 6px;}
+  .oferta-form-box{
+    border:1.5px solid var(--linea);border-radius:12px;padding:12px;margin-top:10px;background:var(--crema);
+  }
+
   .cart-drawer-box{max-width:460px;}
   .cart-drawer-empty{text-align:center;padding:30px 10px;color:#8a8278;}
   .cart-drawer-empty .big{font-size:40px;margin-bottom:10px;}
@@ -548,6 +569,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 </head>
 <body>
 <div id="bannerCerrado" class="banner-cerrado" style="display:none;"></div>
@@ -700,7 +722,16 @@
 
   <div class="empty-note" id="emptyNote">Agrega algo del menú para armar tu pedido 👆</div>
 </div>
+
+  <div id="vistaOfertas">
+    <div class="ofertas-header">
+      <h2>🏷️ Ofertas</h2>
+      <p class="ofertas-sub">Promociones y combos activos ahora mismo.</p>
+    </div>
+    <div class="items promo-items" id="ofertasListaPublica"></div>
   </div>
+
+</div>
 
 <div class="zoom-overlay" id="zoomOverlay" onclick="cerrarZoom()">
   <button class="zoom-close" onclick="cerrarZoom()">✕</button>
@@ -829,32 +860,43 @@
       <label>Mensaje del aviso de cerrado</label>
       <textarea id="cfgMensajeCerrado" placeholder="Ej. Hoy no vamos a tomar pedidos, ¡nos vemos mañana!"></textarea>
 
-      <div class="admin-toggle">
-        <span>🔥 Promo del día activa</span>
-        <input type="checkbox" id="cfgPromo">
+      <label>🏷️ Ofertas activas</label>
+      <div id="ofertasAdminLista" class="ofertas-admin-lista"></div>
+      <button type="button" class="admin-btn secondary" id="ofertaAgregarBtn">+ Agregar oferta</button>
+
+      <div id="ofertaFormBox" class="oferta-form-box" style="display:none;">
+        <label>Nombre de la oferta</label>
+        <input type="text" id="ofertaNombreInput" placeholder="Ej. 2 Pastas">
+        <label>Precio ($)</label>
+        <input type="text" id="ofertaPrecioInput" inputmode="numeric" placeholder="Ej. 199">
+        <label>Descripción</label>
+        <textarea id="ofertaDescInput" placeholder="Ej. 2 pastas por $199 de cualquier sabor y variedad de proteína"></textarea>
+        <label>Foto (elige una existente o sube una nueva)</label>
+        <select id="ofertaImagenSelect">
+          <option value="">Sin foto</option>
+          <option value="papas">Papas a la francesa</option>
+          <option value="tenders">Tenders de pollo</option>
+          <option value="boneless8">Boneless</option>
+          <option value="crunchy">Crunchy Chicken</option>
+          <option value="clasica">Happy Clásica</option>
+          <option value="bbqbacon">BBQ Bacon Crunch</option>
+          <option value="pineapple">Pineapple Burger</option>
+          <option value="habanero">Habanero Burger</option>
+          <option value="mushroom">Garlic Mushroom Burger</option>
+          <option value="beast">Beast Mode Burger</option>
+          <option value="tocinuda">La Tocinuda</option>
+          <option value="pasta">Pasta</option>
+        </select>
+        <input type="file" id="ofertaImagenUpload" accept="image/*" style="margin-top:8px;">
+        <img id="ofertaImagenPreview" style="display:none;max-width:100%;border-radius:10px;margin-top:8px;" alt="">
+        <div class="admin-msg" id="ofertaUploadMsg"></div>
+        <div class="admin-toggle">
+          <span>Oferta activa</span>
+          <input type="checkbox" id="ofertaActivaInput" checked>
+        </div>
+        <button type="button" class="admin-btn" id="ofertaGuardarBtn">Guardar oferta</button>
+        <button type="button" class="admin-btn secondary" id="ofertaCancelarBtn">Cancelar</button>
       </div>
-      <label>Nombre de la promo</label>
-      <input type="text" id="cfgPromoNombre" placeholder="Ej. 2 Pastas">
-      <label>Precio de la promo ($)</label>
-      <input type="text" id="cfgPromoPrecio" inputmode="numeric" placeholder="Ej. 190">
-      <label>Descripción de la promo</label>
-      <textarea id="cfgPromoDesc" placeholder="Ej. Precio especial solo por hoy (antes $260). Incluye pan de ajo."></textarea>
-      <label>Foto de la promo (reusa una que ya existe)</label>
-      <select id="cfgPromoImagen">
-        <option value="">Sin foto</option>
-        <option value="papas">Papas a la francesa</option>
-        <option value="tenders">Tenders de pollo</option>
-        <option value="boneless8">Boneless</option>
-        <option value="crunchy">Crunchy Chicken</option>
-        <option value="clasica">Happy Clásica</option>
-        <option value="bbqbacon">BBQ Bacon Crunch</option>
-        <option value="pineapple">Pineapple Burger</option>
-        <option value="habanero">Habanero Burger</option>
-        <option value="mushroom">Garlic Mushroom Burger</option>
-        <option value="beast">Beast Mode Burger</option>
-        <option value="tocinuda">La Tocinuda</option>
-        <option value="pasta">Pasta</option>
-      </select>
 
       <div class="admin-toggle">
         <span>🚫 Hoy no hay envío a domicilio</span>
@@ -915,7 +957,7 @@ const pedidosRef = db.collection('pedidos');
 const clientesRef = db.collection('clientes');
 const clientesCuentaRef = db.collection('clientesCuenta'); // perfil del cliente autenticado, por uid (independiente de "clientes" que es por teléfono)
 const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
-let cfg = { cerradoHoy:false, mensajeCerrado:'', promoActiva:false, sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[], temporada:'ninguna' };
+let cfg = { cerradoHoy:false, mensajeCerrado:'', ofertas:[], sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[], temporada:'ninguna' };
 let perfilDireccionesCache = []; // direcciones guardadas del cliente con cuenta activa
 let direccionCaptureMode = null; // {etiqueta, existingIndex} mientras se marca un punto en el mapa para el perfil
 let perfilTelefonoCache = ''; // teléfono del cliente logueado, usado para consultar su historial de pedidos
@@ -1185,33 +1227,39 @@ const menu = {
   ]
 };
 
-// Promo del día — se activa/desactiva desde el panel privado (Firebase), no por fecha fija.
-function insertarPromo(promo){
-  const promoItem = {
-    id:'promo-hoy',
-    name: promo.promoNombre || 'Promo del día',
-    price: Number(promo.promoPrecio) || 0,
-    desc: promo.promoDesc || '',
-    imagenId: promo.promoImagenId || ''
-  };
-  const firma = JSON.stringify(promoItem);
-  const actual = menu["🔥 Promo de hoy"];
-  if(actual && actual[0] && actual[0]._firma === firma) return false; // sin cambios
-  promoItem._firma = firma;
-  if(itemThumbs[promoItem.imagenId]) itemThumbs['promo-hoy'] = itemThumbs[promoItem.imagenId];
-  else delete itemThumbs['promo-hoy'];
-  // Reconstruir menu con la promo primero, conservando el resto del orden
-  const nuevoMenu = Object.assign({"🔥 Promo de hoy":[promoItem]}, menu);
-  for(const k in menu) delete menu[k];
-  Object.assign(menu, nuevoMenu);
-  if(!(promoItem.id in state)) state[promoItem.id] = {qty:0};
-  return true;
-}
-function quitarPromo(){
-  if(!menu["🔥 Promo de hoy"]) return false;
-  delete menu["🔥 Promo de hoy"];
-  delete state['promo-hoy'];
-  delete itemThumbs['promo-hoy'];
+// Ofertas — se administran desde el panel privado (Firebase) como una lista, viven solo
+// en la pestaña "Ofertas" (nunca como categoría/sección dentro del Menú).
+function sincronizarOfertasEnMenu(){
+  const activas = (cfg.ofertas || []).filter(o=>o.activa);
+  const nuevosItems = activas.map(o=>({
+    id: o.id,
+    name: o.nombre,
+    price: Number(o.precio) || 0,
+    desc: o.desc || '',
+    imagenId: o.imagenId || '',
+    imagenUrl: o.imagenUrl || ''
+  }));
+  const firma = JSON.stringify(nuevosItems);
+  const anteriores = menu['Ofertas'] || [];
+  const firmaAnterior = JSON.stringify(anteriores.map(i=>({id:i.id,name:i.name,price:i.price,desc:i.desc,imagenId:i.imagenId,imagenUrl:i.imagenUrl})));
+  if(firma === firmaAnterior) return false; // sin cambios
+
+  const idsNuevos = new Set(nuevosItems.map(i=>i.id));
+  anteriores.forEach(old=>{
+    if(!idsNuevos.has(old.id)){
+      delete state[old.id];
+      delete itemThumbs[old.id];
+    }
+  });
+
+  if(nuevosItems.length) menu['Ofertas'] = nuevosItems;
+  else delete menu['Ofertas'];
+
+  nuevosItems.forEach(item=>{
+    if(!(item.id in state)) state[item.id] = {qty:0};
+    if(item.imagenId && itemThumbs[item.imagenId]) itemThumbs[item.id] = itemThumbs[item.imagenId];
+    else delete itemThumbs[item.id];
+  });
   return true;
 }
 function syncCartDisplay(){
@@ -1265,7 +1313,6 @@ const itemThumbs = {
 };
 
 const secNotes = {
-  "🔥 Promo de hoy": "⏰ válido solo hoy — no se repite mañana",
   "Pastas": "elige tipo, proteína y salsa incluida",
   "Salsas extra": "$15 cada una",
   "Ingredientes extra": "para agregar a cualquier platillo"
@@ -1290,7 +1337,7 @@ function defaultUnit(item){
 function getFoodTargets(){
   const targets = [];
   for(const sec in menu){
-    if(sec === 'Salsas extra' || sec === 'Ingredientes extra') continue;
+    if(sec === 'Salsas extra' || sec === 'Ingredientes extra' || sec === 'Ofertas') continue;
     menu[sec].forEach(item=>{
       const s = state[item.id];
       if(!s) return;
@@ -1395,7 +1442,7 @@ function controlsHTML(item){
   const s = state[item.id];
   const qty = s ? s.qty : 0;
   if(qty === 0){
-    const label = item.id === 'promo-hoy' ? 'Pedir ahora' : '+ Agregar';
+    const label = item.id.startsWith('oferta-') ? 'Pedir ahora' : '+ Agregar';
     return `<button type="button" class="add-btn" onclick="changeQty('${item.id}',1)">${label}</button>`;
   }
   return `
@@ -1414,17 +1461,17 @@ function render(){
   let out = '';
   let secIdx = 0;
   for(const sec in menu){
-    const esPromo = sec === '🔥 Promo de hoy';
+    if(sec === 'Ofertas') continue;
     out += dividerSeccion();
     out += `<div class="sec-head" id="catsec-${secIdx}"><span>${sec}</span>${decoSeccion()}</div>`;
     if(secNotes[sec]) out += `<span class="sec-note">${secNotes[sec]}</span>`;
-    out += `<div class="items${esPromo ? ' promo-items' : ''}">`;
+    out += `<div class="items">`;
     menu[sec].forEach(item=>{
       const thumbData = itemThumbs[item.id];
       const thumb = thumbData ? `<img class="card-thumb" src="${IMG[thumbData.thumb]}" alt="" onclick="abrirZoom('${thumbData.zoom}')">` : '';
       const agotado = cfg.agotados && cfg.agotados.includes(item.id);
       out += `
-        <div class="card${sec === 'Especiales' ? ' especial' : ''}${esPromo ? ' promo-card' : ''}${agotado ? ' agotado' : ''}" data-name="${item.name.toLowerCase()}">
+        <div class="card${sec === 'Especiales' ? ' especial' : ''}${agotado ? ' agotado' : ''}" data-name="${item.name.toLowerCase()}">
           <div class="card-top">
             ${thumb}
             <div class="card-name-row">
@@ -1448,6 +1495,7 @@ function render(){
   buildCategoryChips();
   buildPromoCarousel();
   buildInicioTeaser();
+  renderOfertasPublicas();
   aplicarFiltroBusqueda();
 }
 render();
@@ -1480,15 +1528,13 @@ function buildInicioTeaser(){
 }
 
 function getPromoCarouselItems(){
-  const items = [];
-  if(menu['🔥 Promo de hoy'] && menu['🔥 Promo de hoy'][0]) items.push(menu['🔥 Promo de hoy'][0]);
-  const especiales = menu['Especiales'] || [];
-  especiales.forEach(it=>{ if(it.id !== 'promo-hoy') items.push(it); });
-  return items;
+  return (menu['Especiales'] || []).slice();
 }
 function promoSlideHTML(item){
   const thumbData = itemThumbs[item.id];
-  const thumb = thumbData ? `<img class="card-thumb" src="${IMG[thumbData.thumb]}" alt="" onclick="abrirZoom('${thumbData.zoom}')">` : '';
+  const thumb = item.imagenUrl
+    ? `<img class="card-thumb" src="${item.imagenUrl}" alt="">`
+    : (thumbData ? `<img class="card-thumb" src="${IMG[thumbData.thumb]}" alt="" onclick="abrirZoom('${thumbData.zoom}')">` : '');
   return `
     <div class="card promo-card" data-name="${item.name.toLowerCase()}">
       <div class="card-top">
@@ -1503,6 +1549,16 @@ function promoSlideHTML(item){
         <div class="controls-slot" data-controls-for="${item.id}">${controlsHTML(item)}</div>
       </div>
     </div>`;
+}
+function renderOfertasPublicas(){
+  const cont = document.getElementById('ofertasListaPublica');
+  if(!cont) return;
+  const items = menu['Ofertas'] || [];
+  if(items.length === 0){
+    cont.innerHTML = `<div class="ofertas-empty"><div class="big">🏷️</div><p>No hay ofertas activas por ahora, vuelve pronto.</p></div>`;
+    return;
+  }
+  cont.innerHTML = items.map(promoSlideHTML).join('');
 }
 function aplicarPosicionCarousel(){
   const track = document.getElementById('promoTrack');
@@ -1581,6 +1637,7 @@ function buildCategoryChips(){
   let out = '';
   let idx = 0;
   for(const sec in menu){
+    if(sec === 'Ofertas') continue;
     const bgUrl = secBanners[sec] ? IMG[secBanners[sec]] : secBannersExtra[sec];
     const img = bgUrl ? `<img src="${bgUrl}" alt="">` : `<img src="assets/logo-color.png" alt="" style="object-fit:contain;padding:10px;">`;
     out += `<div class="cat-chip" onclick="irACategoria(${idx})">${img}<span>${sec}</span></div>`;
@@ -1611,13 +1668,10 @@ function marcarTabActivo(idActivo){
 function mostrarVista(nombre){
   const inicio = document.getElementById('vistaInicio');
   const menuV = document.getElementById('vistaMenu');
-  if(nombre === 'inicio'){
-    inicio.classList.add('active');
-    menuV.classList.remove('active');
-  } else {
-    inicio.classList.remove('active');
-    menuV.classList.add('active');
-  }
+  const ofertasV = document.getElementById('vistaOfertas');
+  inicio.classList.toggle('active', nombre === 'inicio');
+  menuV.classList.toggle('active', nombre === 'menu');
+  if(ofertasV) ofertasV.classList.toggle('active', nombre === 'ofertas');
 }
 const tabFabEl = document.getElementById('tabFab');
 if(tabFabEl) tabFabEl.addEventListener('click', ()=>{
@@ -1649,9 +1703,8 @@ if(tabMenuEl) tabMenuEl.addEventListener('click', ()=>{
 const tabOfertasEl = document.getElementById('tabOfertas');
 if(tabOfertasEl) tabOfertasEl.addEventListener('click', ()=>{
   marcarTabActivo('tabOfertas');
-  mostrarVista('menu');
-  const promo = document.querySelector('.promo-card') || document.getElementById('menu');
-  if(promo) promo.scrollIntoView({behavior:'smooth', block:'start'});
+  mostrarVista('ofertas');
+  window.scrollTo({top:0, behavior:'smooth'});
 });
 const tabPerfilEl = document.getElementById('tabPerfil');
 if(tabPerfilEl) tabPerfilEl.addEventListener('click', ()=>{
@@ -2528,11 +2581,17 @@ function applySettings(s){
   cfg = {
     cerradoHoy: !!s.cerradoHoy,
     mensajeCerrado: s.mensajeCerrado || '😴 Hoy no estamos tomando pedidos. ¡Vuelve pronto!',
-    promoActiva: !!s.promoActiva,
-    promoNombre: s.promoNombre || '2 Pastas',
-    promoPrecio: s.promoPrecio || 190,
-    promoDesc: s.promoDesc || 'Precio especial solo por hoy. Pregunta por los detalles al hacer tu pedido.',
-    promoImagenId: s.promoImagenId || '',
+    // Migración: si todavía no existe la lista "ofertas" pero había una promo del día activa
+    // (formato viejo de un solo campo), la convertimos en una oferta de una sola pieza.
+    ofertas: Array.isArray(s.ofertas) ? s.ofertas : (s.promoActiva ? [{
+      id: 'oferta-legacy',
+      nombre: s.promoNombre || '2 Pastas',
+      precio: Number(s.promoPrecio) || 190,
+      desc: s.promoDesc || 'Precio especial solo por hoy. Pregunta por los detalles al hacer tu pedido.',
+      imagenId: s.promoImagenId || '',
+      imagenUrl: '',
+      activa: true
+    }] : []),
     sinEnvioHoy: !!s.sinEnvioHoy,
     mensajeSinEnvio: s.mensajeSinEnvio || 'Hoy no tenemos servicio a domicilio, solo puedes recoger en el local.',
     permitirRecoger: !!s.permitirRecoger,
@@ -2571,7 +2630,7 @@ function applySettings(s){
     }
   }
 
-  const promoChanged = cfg.promoActiva ? insertarPromo(cfg) : quitarPromo();
+  const ofertasChanged = sincronizarOfertasEnMenu();
 
   const agotadosStr = JSON.stringify(cfg.agotados.slice().sort());
   const agotadosChanged = agotadosStr !== agotadosAnteriores;
@@ -2586,7 +2645,7 @@ function applySettings(s){
     });
   }
 
-  if(promoChanged || agotadosChanged){
+  if(ofertasChanged || agotadosChanged){
     render();
     syncCartDisplay();
   }
@@ -2730,15 +2789,11 @@ document.getElementById('adminLogoutBtn').addEventListener('click', ()=> auth.si
 function llenarFormularioAdmin(){
   document.getElementById('cfgCerrado').checked = cfg.cerradoHoy;
   document.getElementById('cfgMensajeCerrado').value = cfg.mensajeCerrado;
-  document.getElementById('cfgPromo').checked = cfg.promoActiva;
-  document.getElementById('cfgPromoNombre').value = cfg.promoNombre;
-  document.getElementById('cfgPromoPrecio').value = cfg.promoPrecio;
-  document.getElementById('cfgPromoDesc').value = cfg.promoDesc;
-  document.getElementById('cfgPromoImagen').value = cfg.promoImagenId;
   document.getElementById('cfgSinEnvio').checked = cfg.sinEnvioHoy;
   document.getElementById('cfgPermitirRecoger').checked = cfg.permitirRecoger;
   document.getElementById('cfgMensajeSinEnvio').value = cfg.mensajeSinEnvio;
   document.getElementById('cfgTemporada').value = cfg.temporada;
+  renderOfertasAdminLista();
   poblarListaAgotados();
 }
 
@@ -3024,7 +3079,7 @@ function poblarListaAgotados(){
   const cont = document.getElementById('agotadosLista');
   let html = '';
   for(const sec in menu){
-    if(sec === '🔥 Promo de hoy') continue;
+    if(sec === 'Ofertas') continue;
     html += `<div class="sec-titulo">${sec}</div>`;
     menu[sec].forEach(item=>{
       const marcado = cfg.agotados && cfg.agotados.includes(item.id) ? 'checked' : '';
@@ -3034,16 +3089,130 @@ function poblarListaAgotados(){
   cont.innerHTML = html;
 }
 
+/* ===================== Ofertas (admin: lista + alta/edición + subida de imagen) ===================== */
+let ofertaEditandoId = null;
+let ofertaImagenUrlPendiente = '';
+
+function renderOfertasAdminLista(){
+  const cont = document.getElementById('ofertasAdminLista');
+  if(!cont) return;
+  if(!cfg.ofertas || cfg.ofertas.length === 0){
+    cont.innerHTML = '<p style="font-size:12.5px;color:#8a8278;margin:4px 0 0;">Aún no tienes ofertas. Agrega una.</p>';
+    return;
+  }
+  cont.innerHTML = cfg.ofertas.map(o=>`
+    <div class="oferta-admin-row">
+      <div class="oferta-admin-info">
+        <div class="oferta-admin-nombre">${o.activa ? '🟢' : '⚪'} ${o.nombre}</div>
+        <div class="oferta-admin-precio">$${o.precio}</div>
+      </div>
+      <div class="oferta-admin-actions">
+        <button type="button" title="Editar" onclick="abrirFormularioOferta('${o.id}')">✏️</button>
+        <button type="button" title="Eliminar" onclick="eliminarOferta('${o.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+function abrirFormularioOferta(id){
+  ofertaEditandoId = id || null;
+  const oferta = id ? (cfg.ofertas || []).find(o=>o.id===id) : null;
+  document.getElementById('ofertaNombreInput').value = oferta ? oferta.nombre : '';
+  document.getElementById('ofertaPrecioInput').value = oferta ? oferta.precio : '';
+  document.getElementById('ofertaDescInput').value = oferta ? oferta.desc : '';
+  document.getElementById('ofertaImagenSelect').value = oferta ? (oferta.imagenId || '') : '';
+  document.getElementById('ofertaActivaInput').checked = oferta ? !!oferta.activa : true;
+  document.getElementById('ofertaImagenUpload').value = '';
+  const preview = document.getElementById('ofertaImagenPreview');
+  if(oferta && oferta.imagenUrl){ preview.src = oferta.imagenUrl; preview.style.display = 'block'; }
+  else { preview.style.display = 'none'; preview.src = ''; }
+  ofertaImagenUrlPendiente = oferta ? (oferta.imagenUrl || '') : '';
+  document.getElementById('ofertaUploadMsg').textContent = '';
+  document.getElementById('ofertaFormBox').style.display = 'block';
+}
+
+const ofertaAgregarBtnEl = document.getElementById('ofertaAgregarBtn');
+if(ofertaAgregarBtnEl) ofertaAgregarBtnEl.addEventListener('click', ()=> abrirFormularioOferta(null));
+
+const ofertaCancelarBtnEl = document.getElementById('ofertaCancelarBtn');
+if(ofertaCancelarBtnEl) ofertaCancelarBtnEl.addEventListener('click', ()=>{
+  document.getElementById('ofertaFormBox').style.display = 'none';
+});
+
+const ofertaImagenUploadEl = document.getElementById('ofertaImagenUpload');
+if(ofertaImagenUploadEl) ofertaImagenUploadEl.addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const msg = document.getElementById('ofertaUploadMsg');
+  msg.className = 'admin-msg';
+  msg.textContent = 'Subiendo imagen...';
+  const nombreArchivo = Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9._-]/g, '');
+  const ref = firebase.storage().ref().child('ofertas/' + nombreArchivo);
+  ref.put(file).then(snap=> snap.ref.getDownloadURL()).then(url=>{
+    ofertaImagenUrlPendiente = url;
+    const preview = document.getElementById('ofertaImagenPreview');
+    preview.src = url;
+    preview.style.display = 'block';
+    msg.className = 'admin-msg ok';
+    msg.textContent = 'Imagen subida ✅';
+  }).catch(err=>{
+    msg.className = 'admin-msg err';
+    msg.textContent = 'Error al subir imagen: ' + err.message;
+  });
+});
+
+function guardarOfertasEnFirestore(){
+  return settingsRef.set({ ofertas: cfg.ofertas || [] }, { merge: true });
+}
+
+const ofertaGuardarBtnEl = document.getElementById('ofertaGuardarBtn');
+if(ofertaGuardarBtnEl) ofertaGuardarBtnEl.addEventListener('click', ()=>{
+  const nombre = document.getElementById('ofertaNombreInput').value.trim();
+  const precio = Number(document.getElementById('ofertaPrecioInput').value) || 0;
+  const desc = document.getElementById('ofertaDescInput').value.trim();
+  const imagenId = document.getElementById('ofertaImagenSelect').value;
+  const activa = document.getElementById('ofertaActivaInput').checked;
+  if(!nombre){ alert('Ponle un nombre a la oferta.'); return; }
+  if(!cfg.ofertas) cfg.ofertas = [];
+  if(ofertaEditandoId){
+    const o = cfg.ofertas.find(x=>x.id===ofertaEditandoId);
+    if(o) Object.assign(o, { nombre, precio, desc, imagenId, imagenUrl: ofertaImagenUrlPendiente, activa });
+  } else {
+    cfg.ofertas.push({
+      id: 'oferta-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      nombre, precio, desc, imagenId, imagenUrl: ofertaImagenUrlPendiente, activa
+    });
+  }
+  document.getElementById('ofertaFormBox').style.display = 'none';
+  renderOfertasAdminLista();
+  sincronizarOfertasEnMenu();
+  render();
+  syncCartDisplay();
+  const msg = document.getElementById('adminGuardarMsg');
+  guardarOfertasEnFirestore().then(()=>{
+    msg.className = 'admin-msg ok';
+    msg.textContent = 'Oferta guardada ✅';
+    setTimeout(()=> msg.textContent = '', 3000);
+  }).catch(err=>{
+    msg.className = 'admin-msg err';
+    msg.textContent = 'Error al guardar: ' + err.message;
+  });
+});
+
+function eliminarOferta(id){
+  if(!confirm('¿Eliminar esta oferta?')) return;
+  cfg.ofertas = (cfg.ofertas || []).filter(o=>o.id !== id);
+  renderOfertasAdminLista();
+  sincronizarOfertasEnMenu();
+  render();
+  syncCartDisplay();
+  guardarOfertasEnFirestore();
+}
+
 document.getElementById('adminGuardarBtn').addEventListener('click', ()=>{
   const agotados = Array.from(document.querySelectorAll('#agotadosLista input:checked')).map(el => el.value);
   const nuevo = {
     cerradoHoy: document.getElementById('cfgCerrado').checked,
     mensajeCerrado: document.getElementById('cfgMensajeCerrado').value.trim(),
-    promoActiva: document.getElementById('cfgPromo').checked,
-    promoNombre: document.getElementById('cfgPromoNombre').value.trim(),
-    promoPrecio: Number(document.getElementById('cfgPromoPrecio').value) || 0,
-    promoDesc: document.getElementById('cfgPromoDesc').value.trim(),
-    promoImagenId: document.getElementById('cfgPromoImagen').value,
     sinEnvioHoy: document.getElementById('cfgSinEnvio').checked,
     permitirRecoger: document.getElementById('cfgPermitirRecoger').checked,
     mensajeSinEnvio: document.getElementById('cfgMensajeSinEnvio').value.trim(),
