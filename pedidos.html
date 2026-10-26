@@ -79,6 +79,35 @@
   .pos-pago-tabs input:checked + span{color:inherit;}
   .pos-pago-tabs label:has(input:checked){background:var(--rojo);color:#fff;border-color:var(--rojo);}
 
+  /* Popup de variante (salsa/natural) sobre la cuadrícula del Mostrador */
+  .pos-variant-box{max-width:360px;}
+  .pos-variant-box h3{font-size:15px;}
+  .pos-variant-box label{font-size:12px;font-weight:700;display:block;margin:10px 0 4px;}
+  .pos-variant-box select, .pos-variant-box input{width:100%;padding:8px;border:1.5px solid var(--linea);border-radius:8px;font-size:13.5px;}
+  .pos-variant-qty{display:flex;align-items:center;gap:10px;}
+  .pos-variant-qty input{width:70px;text-align:center;}
+  .pos-variant-actions{display:flex;gap:8px;margin-top:16px;}
+  .pos-variant-actions button{flex:1;}
+
+  /* Ticket imprimible (80mm) */
+  .ticket-print{display:none;}
+  .ticket-print .t-center{text-align:center;}
+  .ticket-print .t-bold{font-weight:700;}
+  .ticket-print .t-big{font-size:15px;}
+  .ticket-print .t-sep{border-top:1px dashed #000;margin:6px 0;}
+  .ticket-print .t-item{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;}
+  .ticket-print .t-right{white-space:nowrap;}
+  @media print{
+    @page{ size:80mm auto; margin:0; }
+    body *{ visibility:hidden; }
+    #ticketImprimible, #ticketImprimible *{ visibility:visible; }
+    #ticketImprimible{
+      display:block !important;
+      position:absolute; top:0; left:0; width:76mm; padding:2mm;
+      font-family:'Courier New',monospace; font-size:11px; color:#000;
+    }
+  }
+
   .login-box{max-width:340px;margin:80px auto;background:#fff;border-radius:12px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
   .login-box h2{margin-top:0;}
   .login-box input{width:100%;padding:10px;border:1.5px solid var(--linea);border-radius:8px;margin-bottom:12px;font-size:14px;}
@@ -114,6 +143,7 @@
   .btn-avanzar{background:var(--azul);color:#fff;}
   .btn-wa{background:#25D366;color:#fff;}
   .btn-mapa{background:var(--amarillo);color:var(--carbon);}
+  .btn-imprimir{background:#444;color:#fff;}
   .empty{color:#8a7f6c;font-size:12.5px;padding:10px;text-align:center;}
   .ventas-box{display:flex;gap:8px;flex-wrap:wrap;}
   .ventas{background:var(--crema);border:1px solid var(--linea);color:var(--carbon);border-radius:20px;padding:7px 14px;font-weight:700;font-size:12.5px;}
@@ -251,6 +281,25 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="posVariantOverlay">
+  <div class="modal-box pos-variant-box">
+    <h3 id="posVariantTitle">Producto</h3>
+    <label>Salsa</label>
+    <select id="menuPickerSalsa"></select>
+    <select id="menuPickerSalsaAparte" style="display:none;margin-top:8px;"></select>
+    <label>Cantidad</label>
+    <div class="pos-variant-qty">
+      <input type="number" id="menuPickerCant" min="1" value="1">
+    </div>
+    <div class="pos-variant-actions">
+      <button type="button" class="btn-cancelar" id="posVariantCancelar">Cancelar</button>
+      <button type="button" class="btn-guardar" id="menuPickerAddBtn">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<div id="ticketImprimible" class="ticket-print"></div>
+
 <div class="modal-overlay" id="manualOverlay">
   <div class="modal-box" style="max-width:none;">
     <h3>🧾 Pedido de mostrador</h3>
@@ -261,22 +310,10 @@
         <div class="pos-cats" id="posCats"></div>
         <div class="pos-grid" id="posGrid"></div>
 
-        <details style="margin-top:14px;">
-          <summary style="font-size:11.5px;font-weight:700;color:#8a7f6c;cursor:pointer;">Agregar manual / por salsa</summary>
-          <div style="margin-top:8px;">
-            <label style="font-size:12px;font-weight:700;">Producto</label>
-            <div style="display:flex;gap:6px;margin:6px 0 6px;flex-wrap:wrap;">
-              <select id="menuPickerSelect" style="flex:1 1 200px;min-width:0;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
-              <input type="number" id="menuPickerCant" min="1" value="1" style="flex:0 0 55px;min-width:0;">
-              <button type="button" id="menuPickerAddBtn" style="flex:0 0 90px;background:var(--azul);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;">Agregar</button>
-            </div>
-            <div style="display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap;">
-              <select id="menuPickerSalsa" style="flex:1 1 200px;min-width:0;display:none;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
-              <select id="menuPickerSalsaAparte" style="flex:1 1 200px;min-width:0;display:none;padding:7px;border:1.5px solid var(--linea);border-radius:6px;font-size:13px;"></select>
-            </div>
-            <button class="add-row-btn" id="manualAddRow" type="button">+ Agregar producto manual (precio libre)</button>
-          </div>
-        </details>
+        <select id="menuPickerSelect" style="display:none;"></select>
+        <div style="margin-top:14px;">
+          <button class="add-row-btn" id="manualAddRow" type="button">+ Agregar producto manual (precio libre)</button>
+        </div>
       </div>
 
       <div class="pos-cart-col">
@@ -321,6 +358,7 @@
 
           <div class="modal-btns">
             <button class="btn-cancelar" id="manualCancelar" type="button">Cancelar</button>
+            <button class="btn-cancelar" id="manualImprimirBtn" type="button">🖨️ Imprimir</button>
             <button class="btn-guardar" id="manualGuardar" type="button">Registrar pedido</button>
           </div>
         </div>
@@ -577,16 +615,27 @@ function renderPosGrid(){
       select.dispatchEvent(new Event('change'));
       const opt = select.options[select.selectedIndex];
       if(opt && opt.dataset.sauce){
-        // Tiene variante de salsa: abrimos el detalle para que elijan antes de agregar.
-        const det = tile.closest('.pos-grid-col').querySelector('details');
-        if(det) det.open = true;
-        document.getElementById('menuPickerSalsa').scrollIntoView({block:'center', behavior:'smooth'});
+        // Tiene variante de salsa: abrimos el popup encima de la cuadrícula para elegirla.
+        abrirPopupVariante(opt);
       } else {
         document.getElementById('menuPickerAddBtn').click();
       }
     });
   });
 }
+
+function abrirPopupVariante(opt){
+  document.getElementById('posVariantTitle').textContent = `${opt.dataset.name || opt.textContent} — $${opt.dataset.price}`;
+  document.getElementById('menuPickerCant').value = 1;
+  actualizarMenuPickerSalsa();
+  document.getElementById('menuPickerSalsa').value = SAUCE_OPTIONS[0];
+  actualizarMenuPickerSalsaAparte();
+  document.getElementById('posVariantOverlay').classList.add('show');
+}
+function cerrarPopupVariante(){
+  document.getElementById('posVariantOverlay').classList.remove('show');
+}
+document.getElementById('posVariantCancelar').addEventListener('click', cerrarPopupVariante);
 const posBuscarEl = document.getElementById('posBuscar');
 if(posBuscarEl) posBuscarEl.addEventListener('input', renderPosGrid);
 
@@ -822,6 +871,7 @@ function tarjeta(p){
     <div class="btns">
       ${avanzarBtn}
       <button class="btn-editar" data-id="${p.id}">✏️ Editar</button>
+      <button class="btn-imprimir" data-id="${p.id}">🖨️ Imprimir</button>
       <a class="btn-wa" href="https://wa.me/?text=${encodeURIComponent(textoWhatsapp(p))}" target="_blank">📲 WhatsApp</a>
       ${mapaBtn}
     </div>
@@ -829,8 +879,61 @@ function tarjeta(p){
   const btn = div.querySelector('.btn-avanzar');
   if(btn) btn.addEventListener('click', ()=> avanzarEstado(btn.dataset.id, btn.dataset.estado));
   div.querySelector('.btn-editar').addEventListener('click', ()=> abrirEditor(p.id));
+  div.querySelector('.btn-imprimir').addEventListener('click', ()=> imprimirTicketDesdeCache(p.id));
   div.querySelector('.btn-borrar').addEventListener('click', ()=> borrarPedido(p.id, p.nombre));
   return div;
+}
+
+/* ===================== Ticket imprimible (80mm) ===================== */
+function construirTicketHTML(t){
+  const fecha = t.fecha instanceof Date ? t.fecha : new Date();
+  const fechaTxt = fecha.toLocaleDateString('es-MX') + ' ' + fecha.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+  const itemsHtml = (t.items || []).map(it => `
+    <div class="t-item"><div>${it.cantidad} x ${it.nombre}</div><div class="t-right">$${it.precio}</div></div>
+  `).join('');
+  return `
+    <div class="t-center t-bold t-big">HAPPY BURGER</div>
+    <div class="t-center">Lo clásico nunca pasa de moda</div>
+    <div class="t-sep"></div>
+    ${t.folio ? `<div>Pedido: #${t.folio}</div>` : ''}
+    <div>${fechaTxt}</div>
+    ${t.nombre ? `<div>Cliente: ${t.nombre}</div>` : ''}
+    <div class="t-sep"></div>
+    ${itemsHtml}
+    <div class="t-sep"></div>
+    <div class="t-item"><div>Subtotal</div><div class="t-right">$${t.subtotal}</div></div>
+    ${t.envioFee ? `<div class="t-item"><div>Envío</div><div class="t-right">$${t.envioFee}</div></div>` : ''}
+    ${t.descuento ? `<div class="t-item"><div>Descuento</div><div class="t-right">-$${t.descuento}</div></div>` : ''}
+    <div class="t-sep"></div>
+    <div class="t-item t-bold t-big"><div>TOTAL</div><div class="t-right">$${t.total}</div></div>
+    <div>Pago: ${t.pago || ''}</div>
+    ${t.notas ? `<div>Notas: ${t.notas}</div>` : ''}
+    <div class="t-sep"></div>
+    <div class="t-center">¡Gracias por tu compra!</div>
+  `;
+}
+
+function imprimirTicket(t){
+  const cont = document.getElementById('ticketImprimible');
+  cont.innerHTML = construirTicketHTML(t);
+  window.print();
+}
+
+function imprimirTicketDesdeCache(id){
+  const p = pedidosCache[id];
+  if(!p){ alert('No se encontró ese pedido.'); return; }
+  imprimirTicket({
+    folio: id.slice(-6).toUpperCase(),
+    fecha: p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : new Date(),
+    nombre: p.nombre,
+    items: p.items,
+    subtotal: p.subtotal,
+    envioFee: p.envioFee,
+    descuento: p.descuento,
+    total: p.total,
+    pago: p.pago,
+    notas: p.notas
+  });
 }
 
 function borrarPedido(id, nombre){
@@ -1203,10 +1306,33 @@ document.getElementById('menuPickerAddBtn').addEventListener('click', ()=>{
   }
   document.getElementById('menuPickerCant').value = 1;
   recalcularManual();
+  cerrarPopupVariante();
 });
 
 document.getElementById('manualCancelar').addEventListener('click', ()=>{
   mostrarVistaPOS('viewTablero');
+});
+
+document.getElementById('manualImprimirBtn').addEventListener('click', ()=>{
+  const items = [];
+  document.querySelectorAll('#manualRows .edit-row').forEach(row=>{
+    const cantidad = Number(row.querySelector('.ed-cant').value) || 0;
+    const nombre = row.querySelector('.ed-nombre').value.trim();
+    const precio = Number(row.querySelector('.ed-precio').value) || 0;
+    if(nombre && cantidad > 0) items.push({ cantidad, nombre, precio });
+  });
+  if(items.length === 0){ alert('Agrega al menos un producto para imprimir.'); return; }
+  const subtotal = items.reduce((sum,it)=> sum + it.precio, 0);
+  const envioFee = Number(document.getElementById('manualEnvio').value) || 0;
+  const descuento = Number(document.getElementById('manualDescuento').value) || 0;
+  const total = Math.max(0, subtotal + envioFee - descuento);
+  imprimirTicket({
+    nombre: document.getElementById('manualNombre').value.trim() || 'Cliente mostrador',
+    items, subtotal, envioFee, descuento, total,
+    pago: document.querySelector('input[name="manualPago"]:checked').value,
+    notas: document.getElementById('manualNotas').value.trim(),
+    fecha: new Date()
+  });
 });
 
 document.getElementById('manualGuardar').addEventListener('click', ()=>{
