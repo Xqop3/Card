@@ -273,7 +273,7 @@ const ADMIN_EMAIL = 'happyburguermid@gmail.com';
 const settingsRef = db.collection('settings').doc('config');
 
 // Copia ligera (solo id/nombre/precio) del menú de index.html, para el selector del pedido de mostrador.
-const SAUCE_OPTIONS = ['BBQ','Búfalo','Mango habanero','Blue cheese','Tamarindo'];
+const SAUCE_OPTIONS = ['BBQ','Búfalo','Mango habanero','Blue cheese','Tamarindo','Ranch'];
 const NATURAL_OPTION = 'Natural (sin bañar, salsa aparte)';
 const MENU_ITEMS = [
   {sec:'Entradas', id:'papas', name:'Papas a la francesa', price:70},
@@ -297,6 +297,7 @@ const MENU_ITEMS = [
   {sec:'Salsas extra', id:'salsa-mango', name:'Salsa Mango habanero', price:15},
   {sec:'Salsas extra', id:'salsa-bluecheese', name:'Salsa Blue cheese', price:15},
   {sec:'Salsas extra', id:'salsa-tamarindo', name:'Salsa Tamarindo', price:15},
+  {sec:'Salsas extra', id:'salsa-ranch', name:'Salsa Ranch', price:15},
   {sec:'Ingredientes extra', id:'carne-extra', name:'Carne extra hamburguesa', price:35},
   {sec:'Ingredientes extra', id:'tocino-extra', name:'Tocino extra (1 tira)', price:15},
   {sec:'Ingredientes extra', id:'pollo-extra', name:'Carne extra pollo crunchy', price:49}
@@ -1159,8 +1160,15 @@ function pintarCaja(data){
     <p style="font-size:13px;">🧮 Esperado: <strong>$${esperado}</strong></p>
     <p style="font-size:13px;">📦 Contado al cerrar: <strong>$${data.cierre}</strong></p>
     <p style="font-size:14px;font-weight:800;">${difTxt}</p>
+    <button class="btn-guardar" id="cajaReabrirBtn" type="button" style="width:100%;margin-top:10px;background:#444;">🔓 Reabrir caja (corregir cierre)</button>
   `;
   conectarDidiGastos(data);
+  document.getElementById('cajaReabrirBtn').addEventListener('click', ()=>{
+    if(!confirm('¿Reabrir la caja de hoy? Esto borra el cierre registrado para que puedas volver a contarla y cerrarla bien.')) return;
+    db.collection('caja').doc(fechaHoyStr()).update({
+      cierre: null, cierreHora: null, efectivoEsperado: null, diferencia: null
+    }).then(abrirCaja).catch(err=> alert('No se pudo reabrir: ' + err.message));
+  });
 }
 
 function abrirCaja(){
