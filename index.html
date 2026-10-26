@@ -955,7 +955,30 @@ const settingsRef = db.collection('settings').doc('config');
 const pedidosRef = db.collection('pedidos');
 const clientesRef = db.collection('clientes');
 const clientesCuentaRef = db.collection('clientesCuenta'); // perfil del cliente autenticado, por uid (independiente de "clientes" que es por teléfono)
+const recetasRef = db.collection('recetas');
+const inventarioRef = db.collection('inventario');
 const HAPPYCARD_PCT = 0.03; // 3% de cashback sobre lo pagado
+
+// Descuento de inventario "best-effort": si falla, el pedido ya se guardó y eso es
+// lo que importa — nunca debe bloquear ni retrasar la confirmación del pedido.
+// FieldValue.increment() aplica un delta atómico del lado del servidor sin necesitar
+// leer el valor actual primero.
+function deducirInventarioPorVenta(items){
+  (items || []).forEach(item=>{
+    if(!item.id) return; // sin id de menú (no debería pasar aquí, pero por seguridad)
+    recetasRef.doc(item.id).get().then(doc=>{
+      if(!doc.exists) return;
+      const ingredientes = doc.data().ingredientes || [];
+      ingredientes.forEach(ing=>{
+        const delta = -(Number(ing.cantidad) || 0) * (Number(item.cantidad) || 0);
+        if(!delta) return;
+        inventarioRef.doc(ing.ingredienteId).update({
+          stock: firebase.firestore.FieldValue.increment(delta)
+        }).catch(err=> console.warn('No se pudo descontar inventario de', ing.ingredienteId, err));
+      });
+    }).catch(err=> console.warn('No se pudo leer la receta de', item.id, err));
+  });
+}
 let cfg = { cerradoHoy:false, mensajeCerrado:'', ofertas:[], sinEnvioHoy:false, mensajeSinEnvio:'', permitirRecoger:false, agotados:[], temporada:'ninguna' };
 let perfilDireccionesCache = []; // direcciones guardadas del cliente con cuenta activa
 let direccionCaptureMode = null; // {etiqueta, existingIndex} mientras se marca un punto en el mapa para el perfil
@@ -2148,12 +2171,12 @@ function buildOrderData(){
             if(item.sauceChoice) variant.push(textoSalsaUnit(u));
             if(item.targetChoice && u.target) variant.push('para: '+u.target);
             subtotal += item.price;
-            itemsResumen.push({ nombre: item.name + (variant.length?` (${variant.join(', ')})`:''), cantidad:1, precio:item.price });
+            itemsResumen.push({ nombre: item.name + (variant.length?` (${variant.join(', ')})`:''), cantidad:1, precio:item.price, id:item.id });
           });
         } else {
           const lineTotal = s.qty * item.price;
           subtotal += lineTotal;
-          itemsResumen.push({ nombre:item.name, cantidad:s.qty, precio:lineTotal });
+          itemsResumen.push({ nombre:item.name, cantidad:s.qty, precio:lineTotal, id:item.id });
         }
       }
     });
@@ -2539,6 +2562,7 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
     estado: 'nuevo',
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   })).then(doc=>{
+    deducirInventarioPorVenta(orderData.items);
     if(orderData.telefono.length === 10){
       const ganado = Math.round(orderData.total * HAPPYCARD_PCT);
       const datosCliente = {
