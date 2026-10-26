@@ -899,6 +899,9 @@ function construirTicketHTML(t){
     ${t.folio ? `<div>Pedido: #${t.folio}</div>` : ''}
     <div>${fechaTxt}</div>
     ${t.nombre ? `<div>Cliente: ${t.nombre}</div>` : ''}
+    ${t.telefono ? `<div>Tel: ${t.telefono}</div>` : ''}
+    ${t.entrega ? `<div>${t.entrega === 'Envío a domicilio' ? '🛵 Envío a domicilio' : '🏠 Recoger en el local'}</div>` : ''}
+    ${t.referencia ? `<div>Dirección/Ref: ${t.referencia}</div>` : ''}
     <div class="t-sep"></div>
     ${itemsHtml}
     <div class="t-sep"></div>
@@ -907,7 +910,8 @@ function construirTicketHTML(t){
     ${t.descuento ? `<div class="t-item"><div>Descuento</div><div class="t-right">-$${t.descuento}</div></div>` : ''}
     <div class="t-sep"></div>
     <div class="t-item t-bold t-big"><div>TOTAL</div><div class="t-right">$${t.total}</div></div>
-    <div>Pago: ${t.pago || ''}</div>
+    <div>Pago: ${t.pago || ''}${t.cambioTxt ? ' ('+t.cambioTxt+')' : ''}</div>
+    ${(t.vuelto !== null && t.vuelto !== undefined) ? `<div class="t-bold">Llevar $${t.vuelto} de cambio</div>` : ''}
     ${t.notas ? `<div>Notas: ${t.notas}</div>` : ''}
     <div class="t-sep"></div>
     <div class="t-center">¡Gracias por tu compra!</div>
@@ -927,12 +931,17 @@ function imprimirTicketDesdeCache(id){
     folio: id.slice(-6).toUpperCase(),
     fecha: p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : new Date(),
     nombre: p.nombre,
+    telefono: p.telefono,
+    entrega: p.entrega,
+    referencia: p.referencia,
     items: p.items,
     subtotal: p.subtotal,
     envioFee: p.envioFee,
     descuento: p.descuento,
     total: p.total,
     pago: p.pago,
+    cambioTxt: p.cambioTxt,
+    vuelto: p.vuelto,
     notas: p.notas
   });
 }
@@ -1327,10 +1336,20 @@ document.getElementById('manualImprimirBtn').addEventListener('click', ()=>{
   const envioFee = Number(document.getElementById('manualEnvio').value) || 0;
   const descuento = Number(document.getElementById('manualDescuento').value) || 0;
   const total = Math.max(0, subtotal + envioFee - descuento);
+  const pago = document.querySelector('input[name="manualPago"]:checked').value;
+  const montoRaw = document.getElementById('manualMontoPagado').value.trim();
+  let cambioTxt = '', vuelto = null;
+  if(pago === 'Efectivo' && montoRaw !== ''){
+    const monto = Number(montoRaw);
+    if(!isNaN(monto)){
+      cambioTxt = `Paga con $${monto}`;
+      if(monto >= total) vuelto = Number((monto - total).toFixed(2));
+    }
+  }
   imprimirTicket({
     nombre: document.getElementById('manualNombre').value.trim() || 'Cliente mostrador',
     items, subtotal, envioFee, descuento, total,
-    pago: document.querySelector('input[name="manualPago"]:checked').value,
+    pago, cambioTxt, vuelto,
     notas: document.getElementById('manualNotas').value.trim(),
     fecha: new Date()
   });
