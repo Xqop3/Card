@@ -380,6 +380,8 @@
         <span class="ventas efectivo" id="ventasEfectivo">💵 Efectivo: $0</span>
         <span class="ventas transferencia" id="ventasTransferencia">🏦 Transferencia: $0</span>
         <span class="ventas tarjeta" id="ventasTarjeta">💳 Tarjeta: $0</span>
+        <span class="ventas" id="ventasEnvios">🛵 Envíos: $0</span>
+        <span class="ventas" id="ventasPedidosMonto">🍔 Platillos: $0</span>
       </div>
       <label class="comision-box">
         Comisión tarjeta
@@ -1004,6 +1006,10 @@ function renderTablero(pedidos){
   });
   document.getElementById('ventasTotal').textContent = `💵 Hoy: $${ganPedidos + ganEnvios}`;
   document.getElementById('ventasPedidos').textContent = `🍔 ${pedidosHoyCount} pedido${pedidosHoyCount===1?'':'s'}`;
+  const envElGlobal = document.getElementById('ventasEnvios');
+  if(envElGlobal) envElGlobal.textContent = `🛵 Envíos: $${ganEnvios}`;
+  const pedMontoEl = document.getElementById('ventasPedidosMonto');
+  if(pedMontoEl) pedMontoEl.textContent = `🍔 Platillos: $${ganPedidos}`;
   document.getElementById('ventasEfectivo').textContent = `💵 Efectivo: $${totalEfectivo}`;
   document.getElementById('ventasTransferencia').textContent = `🏦 Transferencia: $${totalTransferencia}`;
   const comisionPct = comisionTarjeta();
@@ -1501,6 +1507,8 @@ function guardarArrayCaja(campo, nuevoArray){
 // incluido "diario", así no hay saltos bruscos al cumplirse el periodo completo.
 const PERIODO_DIAS = { diario: 1, semanal: 7, quincenal: 15, mensual: 30 };
 let empleadosCache = [];
+let empPickerAbierto = null; // id del empleado cuyo picker de "asignar entregas" está abierto
+let empIncentivos = {}; // { empId: {monto, motivo} } — valores en lo que se está capturando, se limpian al pagar
 
 function esRepartidor(puesto){
   return /repartidor/i.test(puesto || '');
@@ -1523,8 +1531,36 @@ function calcularAcumuladoViajes(emp){
   const costoPorViaje = Number(emp.costoPorViaje) || 0;
   return Number((viajes * costoPorViaje).toFixed(2));
 }
+function salarioDiario(emp){
+  const periodoDias = PERIODO_DIAS[emp.periodo] || 7;
+  return Number(((Number(emp.sueldo) || 0) / periodoDias).toFixed(2));
+}
+// Entregas ya asignadas a este empleado (vía el picker de "Asignar entregas") que
+// todavía no se le han pagado. Se buscan en pedidosCache (ya cargado en memoria por
+// el tablero), no se hace una consulta aparte.
+function entregasAsignadasSinPagar(empId){
+  return Object.values(pedidosCache).filter(p=>
+    p.repartidorId === empId && p.repartidorPagado !== true
+  );
+}
+// Entregas de hoy, ya marcadas "entregado", con envío a domicilio y que ningún
+// repartidor tiene asignadas todavía — son los candidatos para el picker.
+function entregasCandidatas(){
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return Object.values(pedidosCache).filter(p=>{
+    if(p.estado !== 'entregado' || p.entrega !== 'Envío a domicilio') return false;
+    if(p.repartidorId) return false;
+    const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : null;
+    return fecha && fecha >= hoy;
+  });
+}
+function calcularAcumuladoEntregas(emp){
+  const costoPorViaje = Number(emp.costoPorViaje) || 0;
+  const asignadas = entregasAsignadasSinPagar(emp.id);
+  return Number((asignadas.length * costoPorViaje).toFixed(2));
+}
 function calcularAcumulado(emp){
-  return Number((calcularAcumuladoSueldo(emp) + calcularAcumuladoViajes(emp)).toFixed(2));
+  return Number((calcularAcumuladoSueldo(emp) + calcularAcumuladoViajes(emp) + calcularAcumuladoEntregas(emp)).toFixed(2));
 }
 
 function abrirEmpleados(){
@@ -1566,23 +1602,53 @@ function pintarEmpleados(editId){
           </div>
         </div>`;
       }
-      const acumulado = calcularAcumulado(emp);
+      const acumuladoSueldo = calcularAcumuladoSueldo(emp);
+      const acumuladoEntregas = calcularAcumuladoEntregas(emp);
+      const incentivo = (empIncentivos[emp.id] && Number(empIncentivos[emp.id].monto)) || 0;
+      const acumulado = Number((calcularAcumulado(emp) + incentivo).toFixed(2));
       const repartidor = esRepartidor(emp.puesto);
       const viajes = Number(emp.viajesPendientes) || 0;
+      const asignadas = repartidor ? entregasAsignadasSinPagar(emp.id) : [];
       const detalleViajes = repartidor
-        ? ` + ${viajes} viaje${viajes===1?'':'s'} × $${Number(emp.costoPorViaje)||0}`
+        ? (viajes > 0 ? ` + ${viajes} viaje${viajes===1?'':'s'} × $${Number(emp.costoPorViaje)||0}` : '')
+          + (asignadas.length > 0 ? ` + ${asignadas.length} entrega${asignadas.length===1?'':'s'} asignada${asignadas.length===1?'':'s'} × $${Number(emp.costoPorViaje)||0} ($${acumuladoEntregas})` : '')
         : '';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--linea);padding:9px 0;flex-wrap:wrap;">
-        <div style="flex:1 1 160px;min-width:0;">
-          <div style="font-size:13px;font-weight:800;">${emp.nombre}${emp.puesto ? ' · <span style="font-weight:600;color:#8a7f6c;">' + emp.puesto + '</span>' : ''}</div>
-          <div style="font-size:11.5px;color:#8a7f6c;">$${emp.sueldo} / ${emp.periodo}${detalleViajes} · acumulado: <strong style="color:var(--rojo-2);">$${acumulado}</strong></div>
+      const diario = salarioDiario(emp);
+      const pickerAbierto = empPickerAbierto === emp.id;
+      const candidatas = pickerAbierto ? entregasCandidatas() : [];
+      return `<div style="border-bottom:1px solid var(--linea);padding:9px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="flex:1 1 180px;min-width:0;">
+            <div style="font-size:13px;font-weight:800;">${emp.nombre}${emp.puesto ? ' · <span style="font-weight:600;color:#8a7f6c;">' + emp.puesto + '</span>' : ''}</div>
+            <div style="font-size:11.5px;color:#8a7f6c;">$${emp.sueldo} / ${emp.periodo} <span style="color:#b0a894;">(≈ $${diario}/día)</span>${detalleViajes}${incentivo > 0 ? ` + incentivo $${incentivo}` : ''} · acumulado: <strong style="color:var(--rojo-2);">$${acumulado}</strong></div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${repartidor ? `<button type="button" class="emp-asignar-btn" data-id="${emp.id}" style="background:#1565c0;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">📦 Asignar entregas</button>` : ''}
+            ${repartidor ? `<button type="button" class="emp-viaje-btn" data-id="${emp.id}" style="background:#6c5ce7;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">🛵 +1 viaje</button>` : ''}
+            <button type="button" class="emp-pagar-btn" data-id="${emp.id}" data-monto="${acumulado}" style="background:var(--verde);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">💸 Pagar ahora</button>
+            <button type="button" class="emp-editar-btn" data-id="${emp.id}" style="background:var(--azul);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">✏️ Editar</button>
+            <button type="button" class="emp-desactivar-btn" data-id="${emp.id}" style="background:#999;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">🚫 Desactivar</button>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${repartidor ? `<button type="button" class="emp-viaje-btn" data-id="${emp.id}" style="background:#6c5ce7;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">🛵 +1 viaje</button>` : ''}
-          <button type="button" class="emp-pagar-btn" data-id="${emp.id}" data-monto="${acumulado}" style="background:var(--verde);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">💸 Pagar ahora</button>
-          <button type="button" class="emp-editar-btn" data-id="${emp.id}" style="background:var(--azul);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">✏️ Editar</button>
-          <button type="button" class="emp-desactivar-btn" data-id="${emp.id}" style="background:#999;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">🚫 Desactivar</button>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:11px;font-weight:700;">➕ Incentivo $</label>
+          <input type="number" class="emp-incentivo-monto" data-id="${emp.id}" min="0" value="${incentivo || ''}" placeholder="0" style="width:80px;padding:5px;">
+          <input type="text" class="emp-incentivo-motivo" data-id="${emp.id}" value="${(empIncentivos[emp.id] && empIncentivos[emp.id].motivo) || ''}" placeholder="Motivo (ej. uso de su vehículo)" style="flex:1 1 160px;min-width:0;padding:5px;">
         </div>
+        ${pickerAbierto ? `<div style="margin-top:10px;border:1.5px dashed var(--linea);border-radius:8px;padding:10px;">
+          <div style="font-size:12px;font-weight:700;margin-bottom:6px;">Entregas de hoy sin asignar:</div>
+          ${candidatas.length === 0
+            ? `<p style="font-size:11.5px;color:#8a7f6c;">No hay entregas pendientes de asignar por ahora.</p>`
+            : candidatas.map(p=> `<label style="display:flex;gap:8px;align-items:center;font-size:12px;padding:4px 0;">
+                <input type="checkbox" class="emp-entrega-check" value="${p.id}">
+                <span>${p.nombre || 'Cliente'} — $${p.envioFee || 0} de envío${p.createdAt && p.createdAt.toDate ? ' · ' + p.createdAt.toDate().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}) : ''}</span>
+              </label>`).join('')
+          }
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button type="button" class="emp-confirmar-asignar-btn btn-guardar" data-id="${emp.id}" style="flex:1;">Asignar seleccionadas</button>
+            <button type="button" class="emp-cerrar-picker-btn btn-cancelar" style="flex:1;">Cerrar</button>
+          </div>
+        </div>` : ''}
       </div>`;
     }).join('');
   }
@@ -1603,26 +1669,76 @@ function conectarEmpleadosBotones(){
         .catch(err=> alert('No se pudo registrar el viaje: ' + err.message));
     });
   });
+  document.querySelectorAll('.emp-incentivo-monto, .emp-incentivo-motivo').forEach(input=>{
+    input.addEventListener('input', ()=>{
+      const id = input.dataset.id;
+      const fila = empIncentivos[id] || { monto: 0, motivo: '' };
+      if(input.classList.contains('emp-incentivo-monto')) fila.monto = Number(input.value) || 0;
+      else fila.motivo = input.value;
+      empIncentivos[id] = fila;
+    });
+  });
+  document.querySelectorAll('.emp-asignar-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      empPickerAbierto = empPickerAbierto === id ? null : id;
+      pintarEmpleados();
+    });
+  });
+  document.querySelectorAll('.emp-cerrar-picker-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ empPickerAbierto = null; pintarEmpleados(); });
+  });
+  document.querySelectorAll('.emp-confirmar-asignar-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      const seleccionadas = Array.from(document.querySelectorAll('.emp-entrega-check:checked')).map(chk=> chk.value);
+      if(seleccionadas.length === 0){ alert('Selecciona al menos una entrega.'); return; }
+      const batch = db.batch();
+      seleccionadas.forEach(pedidoId=>{
+        batch.update(db.collection('pedidos').doc(pedidoId), { repartidorId: id, repartidorPagado: false });
+      });
+      batch.commit().then(()=>{
+        empPickerAbierto = null;
+        abrirEmpleados();
+      }).catch(err=> alert('No se pudieron asignar las entregas: ' + err.message));
+    });
+  });
   document.querySelectorAll('.emp-pagar-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.id;
-      const monto = Number(btn.dataset.monto);
       const emp = empleadosCache.find(e=> e.id === id);
-      if(!emp || monto <= 0){ alert('No hay nómina pendiente para pagar.'); return; }
+      if(!emp){ return; }
       const repartidor = esRepartidor(emp.puesto);
       const viajes = Number(emp.viajesPendientes) || 0;
-      const concepto = repartidor && viajes > 0 ? 'Nómina + viajes: ' + emp.nombre : 'Nómina: ' + emp.nombre;
+      const asignadas = repartidor ? entregasAsignadasSinPagar(id) : [];
+      const incentivo = (empIncentivos[id] && Number(empIncentivos[id].monto)) || 0;
+      const motivoIncentivo = (empIncentivos[id] && empIncentivos[id].motivo) || '';
+      // Recalculado al momento de pagar (no usamos data-monto porque puede haber
+      // quedado desactualizado si el incentivo se escribió después del último render).
+      const monto = Number((calcularAcumulado(emp) + incentivo).toFixed(2));
+      if(monto <= 0){ alert('No hay nómina pendiente para pagar.'); return; }
+      const partes = ['Nómina'];
+      if(repartidor && (viajes > 0 || asignadas.length > 0)) partes.push('entregas');
+      if(incentivo > 0) partes.push('incentivo' + (motivoIncentivo ? ' (' + motivoIncentivo + ')' : ''));
+      const concepto = partes.join(' + ') + ': ' + emp.nombre;
       if(!confirm(`¿Pagar $${monto.toFixed(2)} a ${emp.nombre}? Esto se registrará como gasto de hoy en la caja.`)) return;
       db.collection('caja').doc(fechaHoyStr()).get().then(doc=>{
         const data = doc.exists ? doc.data() : {};
         const arr = (data.gastos || []).slice();
         arr.push({ monto, concepto, hora: firebase.firestore.Timestamp.now() });
         return guardarArrayCaja('gastos', arr);
-      }).then(()=> empleadosRef.doc(id).update({
+      }).then(()=>{
+        const batch = db.batch();
+        batch.update(empleadosRef.doc(id), {
           ultimoPago: firebase.firestore.FieldValue.serverTimestamp(),
           viajesPendientes: 0
-        }))
-        .then(abrirEmpleados)
+        });
+        asignadas.forEach(p=> batch.update(db.collection('pedidos').doc(p.id), { repartidorPagado: true }));
+        return batch.commit();
+      }).then(()=>{
+          delete empIncentivos[id];
+          abrirEmpleados();
+        })
         .catch(err=> alert('No se pudo registrar el pago: ' + err.message));
     });
   });
