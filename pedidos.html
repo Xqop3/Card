@@ -1523,7 +1523,10 @@ function calcularAcumuladoSueldo(emp){
   const diasTranscurridos = Math.max(0, (Date.now() - base.getTime()) / 86400000);
   const periodoDias = PERIODO_DIAS[emp.periodo] || 7;
   const sueldo = Number(emp.sueldo) || 0;
-  return Number((sueldo / periodoDias * diasTranscurridos).toFixed(2));
+  // Sueldo fijo por periodo completo (no se prorratea por horas): solo se debe
+  // una vez que pasó el periodo entero, no va subiendo centavo a centavo mientras tanto.
+  const periodosCompletos = Math.floor(diasTranscurridos / periodoDias);
+  return Number((sueldo * periodosCompletos).toFixed(2));
 }
 function calcularAcumuladoViajes(emp){
   if(!esRepartidor(emp.puesto)) return 0;
