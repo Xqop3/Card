@@ -2535,13 +2535,15 @@ document.getElementById('sendBtn').addEventListener('click', ()=>{
 
   const entrega = document.querySelector('input[name="entrega"]:checked').value;
   if(entrega === 'Envío a domicilio'){
+    if(pin.lat === null){
+      alert('Nos falta tu ubicación exacta para poder enviarte el pedido 📍\n\nRecarga la página y acepta el permiso de ubicación que te pida el navegador, o toca el mapa para marcar dónde vives, y después intenta enviar tu pedido de nuevo.');
+      const mapSection = document.getElementById('mapSection');
+      if(mapSection) mapSection.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
     const referenciaInput = document.getElementById('referencia');
     if(!referenciaInput.value.trim()){
-      if(pin.lat === null){
-        alert('Toca el mapa para marcar dónde vives, o al menos escribe una referencia de tu casa para poder enviar el pedido.');
-      } else {
-        alert('Escribe una referencia de tu casa (color, portón, seña) para poder enviar el pedido.');
-      }
+      alert('Escribe una referencia de tu casa (color, portón, seña) para poder enviar el pedido.');
       referenciaInput.focus();
       return;
     }
